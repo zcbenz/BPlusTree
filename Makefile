@@ -2,7 +2,7 @@
 # Copyright (C) 2009 Salvatore Sanfilippo <antirez at gmail dot com>
 # This file is released under the BSD license, see the COPYING file
 
-OPTIMIZATION?=-O2
+OPTIMIZATION?=
 CFLAGS?=-std=c++0x $(OPTIMIZATION) -Wall $(PROF)
 CCLINK?=
 DEBUG?=-g -ggdb
@@ -20,13 +20,13 @@ QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CXX$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLO
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR);
 endif
 
-OBJ = bpt.o main.o
+OBJ = bpt.o test.o
 PRGNAME = bpt
 
 all: bpt
-	@echo ""
-	@echo "Hint: To run 'make test' is a good idea ;)"
-	@echo ""
+
+run:
+	./bpt
 
 gprof:
 	$(MAKE) PROF="-pg"
@@ -54,3 +54,4 @@ bpt: $(OBJ)
 
 # Deps (use make dep to generate this)
 bpt.o: bpt.cc bpt.h
+test.o: test.cc bpt.h
