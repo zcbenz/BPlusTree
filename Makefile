@@ -16,11 +16,11 @@ MAKECOLOR="\033[32;1m"
 ENDCOLOR="\033[0m"
 
 ifndef V
-QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CC$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLOR);
+QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CXX$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLOR);
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR);
 endif
 
-OBJ = bpt.o
+OBJ = bpt.o main.o
 PRGNAME = bpt
 
 all: bpt
@@ -47,10 +47,10 @@ dep:
 	$(CC) -MM *.cc
 
 bpt: $(OBJ)
-	$(QUIET_LINK)$(CC) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK)
+	$(QUIET_LINK)$(CXX) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK)
 
-%.o: %.c
-	$(QUIET_CC)$(CC) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) $<
+%.o: %.cc
+	$(QUIET_CC)$(CXX) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) $<
 
 # Deps (use make dep to generate this)
 bpt.o: bpt.cc bpt.h
