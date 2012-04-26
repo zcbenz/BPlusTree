@@ -45,7 +45,7 @@ typedef struct {
 /* internal nodes' index segment */
 typedef struct {
     key_t key;
-    size_t child; /* child's offset according to the internal node */
+    off_t child; /* child's offset according to the internal node */
 } index_t;
 
 /***
@@ -103,7 +103,7 @@ public:
     /* multi-level file open/close */
     mutable FILE *fp;
     mutable int fp_level;
-    inline void open_file(const char *mode = "rb+") const;
+    inline void open_file() const;
     inline void close_file() const;
 
     /* read tree from disk */

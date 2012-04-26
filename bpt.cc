@@ -2,6 +2,23 @@
 #include <stdlib.h>
 #include <assert.h>
 
+/* easy binary search */
+#define BINARY_SEARCH(array,n,key,i,ret) {\
+    size_t l = 0, r = n;\
+    size_t mid;\
+    while (l < n) {\
+        mid = l + (r - l) / 2;\
+        ret = keycmp(key, array[mid].key);\
+        if (ret < 0)\
+            r = mid;\
+        else if (ret > 0)\
+            l = mid;\
+        else\
+            break;\
+    }\
+    i = mid;\
+}
+
 namespace bpt {
 
 bplus_tree::bplus_tree(const char *p, bool force_empty)
@@ -10,15 +27,14 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
     bzero(path, sizeof(path));
     strcpy(path, p);
 
-    FILE *fp = fopen(path, "r+");
+    FILE *fp = fopen(path, "r");
     fclose(fp);
-    if (!fp || force_empty) {
+    if (!fp || force_empty)
         // create empty tree if file doesn't exist
         init_from_empty();
-    } else {
+    else
         // read tree from file
         sync_meta();
-    }
 }
 
 value_t bplus_tree::search(const key_t& key) const
@@ -26,12 +42,9 @@ value_t bplus_tree::search(const key_t& key) const
     leaf_node_t leaf;
     map_block(&leaf, search_leaf_offset(key));
 
-    // TODO binary search
     size_t i;
     int ret;
-    for (i = 0; i < leaf.n; i++)
-        if ((ret = keycmp(leaf.children[i].key, key)) > 0)
-            break;
+    BINARY_SEARCH(leaf.children, leaf.n, key, i, ret);
 
     if (ret == 0)
         return leaf.children[i].value;
@@ -50,12 +63,8 @@ value_t bplus_tree::insert(const key_t& key, value_t value)
         // TODO split when full
 
     } else {
-        size_t i;
-        int ret = -1;
-        // TODO use binary search
-        for (i = 0; i < leaf.n; i++)
-            if ((ret = keycmp(leaf.children[i].key, key)) > 0)
-                break;
+        size_t i; int ret;
+        BINARY_SEARCH(leaf.children, leaf.n, key, i, ret);
 
         // same key?
         if (ret == 0)
@@ -81,7 +90,7 @@ void bplus_tree::init_from_empty()
 {
     // init default meta
     meta.order = BP_ORDER;
-    meta.index_size = sizeof(internal_node_t) * 64;
+    meta.index_size = sizeof(internal_node_t) * 128;
     meta.value_size = sizeof(value_t);
     meta.key_size = sizeof(key_t);
     meta.internal_node_num = meta.leaf_node_num = meta.height = 0;
@@ -100,18 +109,28 @@ off_t bplus_tree::search_leaf_offset(const key_t &key) const
 
     // deep into the leaf
     int height = meta.height;
+    off_t org = sizeof(meta_t);
     while (height > 0) {
-        // TODO do the search
+        // get current node
+        internal_node_t node;
+        map_index(&node, org);
+
+        // move org to correct child
+        size_t i; int ret;
+        BINARY_SEARCH(node.children, node.n, key, i, ret);
+        org += node.children[i].child;
+
         --height;
     }
 
     return offset;
 }
 
-void bplus_tree::open_file(const char *mode) const
+void bplus_tree::open_file() const
 {
+    // `rb+` will make sure we can write everywhere without truncating file
     if (fp_level == 0)
-        fp = fopen(path, mode);
+        fp = fopen(path, "rb+");
 
     ++fp_level;
 }
