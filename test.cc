@@ -29,8 +29,8 @@ int main(int argc, char *argv[])
     assert(tree.meta.height == 0);
     PRINT("ReReadEmptyTree");
 
-    tree.insert("t1", 1);
     tree.insert("t2", 2);
+    tree.insert("t1", 1);
     tree.insert("t3", 3);
     bpt::leaf_node_t leaf;
     tree.search_leaf("t1", &leaf);
@@ -41,9 +41,14 @@ int main(int argc, char *argv[])
     assert(leaf.children[0].value == 1);
     assert(leaf.children[1].value == 2);
     assert(leaf.children[2].value == 3);
-    assert(tree.search("t1") == 1);
-    assert(tree.search("t2") == 2);
-    assert(tree.search("t3") == 3);
+    bpt::value_t value;
+    assert(tree.search("t1", &value) == 0);
+    assert(value == 1);
+    assert(tree.search("t2", &value) == 0);
+    assert(value == 2);
+    assert(tree.search("t3", &value) == 0);
+    assert(value == 3);
+    assert(tree.search("t4", &value) != 0);
     PRINT("ImediateInsert3Elements");
     }
 
@@ -61,12 +66,14 @@ int main(int argc, char *argv[])
     assert(bpt::keycmp(leaf.children[0].key, "t1") == 0);
     assert(bpt::keycmp(leaf.children[1].key, "t2") == 0);
     assert(bpt::keycmp(leaf.children[2].key, "t3") == 0);
-    assert(leaf.children[0].value == 1);
-    assert(leaf.children[1].value == 2);
-    assert(leaf.children[2].value == 3);
-    assert(tree.search("t1") == 1);
-    assert(tree.search("t2") == 2);
-    assert(tree.search("t3") == 3);
+    bpt::value_t value;
+    assert(tree.search("t1", &value) == 0);
+    assert(value == 1);
+    assert(tree.search("t2", &value) == 0);
+    assert(value == 2);
+    assert(tree.search("t3", &value) == 0);
+    assert(value == 3);
+    assert(tree.search("t4", &value) != 0);
     PRINT("ReadImediateInsert3Elements");
     }
 

@@ -2,24 +2,20 @@
 #include <stdlib.h>
 #include <assert.h>
 
-/* easy binary search */
-#define BINARY_SEARCH(array,n,key,i,ret) {\
-    size_t l = 0, r = n;\
-    size_t mid;\
-    while (l < n) {\
-        mid = l + (r - l) / 2;\
-        ret = keycmp(key, array[mid].key);\
-        if (ret < 0)\
-            r = mid;\
-        else if (ret > 0)\
-            l = mid;\
-        else\
-            break;\
-    }\
-    i = mid;\
-}
+#include <algorithm>
+using std::lower_bound;
+using std::upper_bound;
+
+/* offsets */
+#define OFFSET_META 0
+#define OFFSET_INDEX OFFSET_META + sizeof(meta_t)
+#define OFFSET_BLOCK OFFSET_INDEX + meta.index_size
+#define OFFSET_END OFFSET_BLOCK + meta.leaf_node_num * sizeof(leaf_node_t)
 
 namespace bpt {
+
+OPERATOR_KEYCMP(index_t)
+OPERATOR_KEYCMP(record_t)
 
 bplus_tree::bplus_tree(const char *p, bool force_empty)
     : fp(NULL), fp_level(0)
@@ -27,9 +23,15 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
     bzero(path, sizeof(path));
     strcpy(path, p);
 
-    FILE *fp = fopen(path, "r");
-    fclose(fp);
-    if (!fp || force_empty)
+    if (!force_empty) {
+        FILE *fp = fopen(path, "r");
+        if (!fp)
+            force_empty = true;
+        else
+            fclose(fp);
+    }
+
+    if (force_empty)
         // create empty tree if file doesn't exist
         init_from_empty();
     else
@@ -37,22 +39,24 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
         sync_meta();
 }
 
-value_t bplus_tree::search(const key_t& key) const
+int bplus_tree::search(const key_t& key, value_t *value) const
 {
     leaf_node_t leaf;
     map_block(&leaf, search_leaf_offset(key));
 
-    size_t i;
-    int ret;
-    BINARY_SEARCH(leaf.children, leaf.n, key, i, ret);
+    // finding the record
+    record_t *record = lower_bound(leaf.children, leaf.children + leaf.n, key);
+    if (record != leaf.children + leaf.n) {
+        // always return the lower bound
+        *value = record->value;
 
-    if (ret == 0)
-        return leaf.children[i].value;
-    else
-        return value_t();
+        return keycmp(record->key, key);
+    } else {
+        return -1;
+    }
 }
 
-value_t bplus_tree::insert(const key_t& key, value_t value)
+int bplus_tree::insert(const key_t& key, value_t value)
 {
     leaf_node_t leaf;
 
@@ -63,20 +67,19 @@ value_t bplus_tree::insert(const key_t& key, value_t value)
         // TODO split when full
 
     } else {
-        size_t i; int ret;
-        BINARY_SEARCH(leaf.children, leaf.n, key, i, ret);
+        // insert into array when leaf is not full
+        record_t *r = upper_bound(leaf.children, leaf.children + leaf.n, key);
+        if (r != leaf.children + leaf.n) {
+            // same key?
+            if (keycmp((r - 1)->key, key) == 0)
+                return 1;
 
-        // same key?
-        if (ret == 0)
-            return leaf.children[i].value;
+            // move forward 1 element
+            std::copy(r, leaf.children + leaf.n, r + 1);
+        }
 
-        // move afterward
-        if (i < leaf.n)
-            for (size_t j = leaf.n; j > i; --j)
-                leaf.children[j] = leaf.children[j - 1];
-
-        leaf.children[i].key = key;
-        leaf.children[i].value = value;
+        r->key = key;
+        r->value = value;
         leaf.n++;
     }
 
@@ -116,9 +119,8 @@ off_t bplus_tree::search_leaf_offset(const key_t &key) const
         map_index(&node, org);
 
         // move org to correct child
-        size_t i; int ret;
-        BINARY_SEARCH(node.children, node.n, key, i, ret);
-        org += node.children[i].child;
+        index_t *r = lower_bound(node.children, node.children + node.n, key);
+        org += r->child;
 
         --height;
     }
@@ -129,8 +131,11 @@ off_t bplus_tree::search_leaf_offset(const key_t &key) const
 void bplus_tree::open_file() const
 {
     // `rb+` will make sure we can write everywhere without truncating file
-    if (fp_level == 0)
+    if (fp_level == 0) {
         fp = fopen(path, "rb+");
+        if (!fp)
+            fp = fopen(path, "wb+");
+    }
 
     ++fp_level;
 }
@@ -146,7 +151,8 @@ void bplus_tree::close_file() const
 void bplus_tree::sync_meta()
 {
     open_file();
-    fread(&meta, sizeof(meta), 1, fp);
+    fseek(fp, OFFSET_META, SEEK_SET);
+    fread(&meta, sizeof(meta_t), 1, fp);
     close_file();
 }
 
@@ -173,6 +179,7 @@ int bplus_tree::map_block(leaf_node_t *leaf, off_t offset) const
 void bplus_tree::write_meta_to_disk() const
 {
     open_file();
+    fseek(fp, OFFSET_META, SEEK_SET);
     fwrite(&meta, sizeof(meta_t), 1, fp);
     close_file();
 }
@@ -189,18 +196,16 @@ void bplus_tree::write_new_leaf_to_disk(leaf_node_t *leaf)
 {
     open_file();
 
-    // increse leaf counter
-    meta.leaf_node_num++;
-    write_meta_to_disk();
-
     if (leaf->next == -1) {
         // write new leaf at the end
-        fseek(fp, 0, SEEK_END);
+        write_leaf_to_disk(leaf, OFFSET_END);
     } else {
         // TODO seek to the write position
     }
 
-    fwrite(leaf, sizeof(leaf_node_t), 1, fp);
+    // increse leaf counter
+    meta.leaf_node_num++;
+    write_meta_to_disk();
 
     close_file();
 }

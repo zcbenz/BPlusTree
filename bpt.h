@@ -4,32 +4,10 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include <memory>
-using std::unique_ptr;
+#include "predefined.h"
 
 namespace bpt {
-
-typedef int value_t;
-struct key_t {
-    char k[32];
-
-    key_t()
-    {}
-
-    key_t(const char *str)
-    {
-        strcpy(k, str);
-    }
-};
-
-inline int keycmp(const key_t &l, const key_t &r) {
-    return strcmp(l.k, r.k);
-}
-
-/* predefined B+ info */
-#define BP_ORDER 4
 
 /* meta information of B+ tree */
 typedef struct {
@@ -43,19 +21,20 @@ typedef struct {
 } meta_t;
 
 /* internal nodes' index segment */
-typedef struct {
+struct index_t {
     key_t key;
-    off_t child; /* child's offset according to the internal node */
-} index_t;
+    int child; /* child's offset according to the internal node */
+};
 
 /***
  * internal node block
- * | size_t n | key_t key, size_t child | key_t key, size_t child | ... |
+ * | int parent | size_t n | key_t key, size_t child | ... |
  ***/
-typedef struct {
+struct internal_node_t {
+    int parent; /* parent node offset */
     size_t n; /* how many children */
     index_t children[BP_ORDER];
-} internal_node_t;
+};
 
 /* the final record of value */
 struct record_t {
@@ -80,10 +59,10 @@ public:
     bplus_tree(const char *path, bool force_empty = false);
 
     /* abstract operations */
-    value_t search(const key_t& key) const;
-    value_t erase(const key_t& key);
-    value_t insert(const key_t& key, value_t value);
-    value_t update(const key_t& key, value_t value);
+    int search(const key_t& key, value_t *value) const;
+    int erase(const key_t& key);
+    int insert(const key_t& key, value_t value);
+    int update(const key_t& key, value_t value);
 
 public:
     char path[512];
