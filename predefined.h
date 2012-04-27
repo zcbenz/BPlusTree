@@ -6,7 +6,16 @@
 namespace bpt {
 
 /* predefined B+ info */
-#define BP_ORDER 4
+#ifndef BP_ORDER
+    #define BP_ORDER 4
+#endif
+
+/* offsets */
+#define OFFSET_META 0
+#define OFFSET_INDEX OFFSET_META + sizeof(meta_t)
+#define OFFSET_INDEX_END OFFSET_INDEX + meta.internal_node_num * sizeof(internal_node_t)
+#define OFFSET_BLOCK OFFSET_INDEX + meta.index_size
+#define OFFSET_END OFFSET_BLOCK + meta.leaf_node_num * sizeof(leaf_node_t)
 
 /* key/value type */
 typedef int value_t;

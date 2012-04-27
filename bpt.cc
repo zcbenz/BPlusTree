@@ -1,16 +1,12 @@
 #include "bpt.h"
+
 #include <stdlib.h>
 #include <assert.h>
 
 #include <algorithm>
+using std::binary_search;
 using std::lower_bound;
 using std::upper_bound;
-
-/* offsets */
-#define OFFSET_META 0
-#define OFFSET_INDEX OFFSET_META + sizeof(meta_t)
-#define OFFSET_BLOCK OFFSET_INDEX + meta.index_size
-#define OFFSET_END OFFSET_BLOCK + meta.leaf_node_num * sizeof(leaf_node_t)
 
 namespace bpt {
 
@@ -36,13 +32,13 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
         init_from_empty();
     else
         // read tree from file
-        sync_meta();
+        map(&meta);
 }
 
 int bplus_tree::search(const key_t& key, value_t *value) const
 {
     leaf_node_t leaf;
-    map_block(&leaf, search_leaf_offset(key));
+    map(&leaf, search_leaf(key));
 
     // finding the record
     record_t *record = lower_bound(leaf.children, leaf.children + leaf.n, key);
@@ -59,155 +55,198 @@ int bplus_tree::search(const key_t& key, value_t *value) const
 int bplus_tree::insert(const key_t& key, value_t value)
 {
     leaf_node_t leaf;
+    off_t offset = search_leaf(key);
+    map(&leaf, offset);
 
-    off_t offset = search_leaf_offset(key);
-    map_block(&leaf, offset);
+    // check if we have the same key
+    if (binary_search(leaf.children, leaf.children + leaf.n, key))
+        return 1;
 
-    if (leaf.n == meta.order - 1) {
-        // TODO split when full
+    if (leaf.n == meta.order) {
+        // split when full
 
+        // new sibling leaf
+        leaf_node_t new_leaf;
+        leaf.next = alloc(&new_leaf);
+
+        // find even split point
+        size_t point = leaf.n / 2;
+        if (keycmp(key, leaf.children[point].key) > 0)
+            ++point;
+
+        // split
+        std::copy(leaf.children + point, leaf.children + leaf.n,
+                  new_leaf.children);
+        new_leaf.n = leaf.n - point;
+        leaf.n = point;
+
+        // which part do we put the key
+        if (keycmp(key, new_leaf.children[0].key) < 0)
+            insert_leaf_no_split(&leaf, key, value);
+        else
+            insert_leaf_no_split(&new_leaf, key, value);
+
+        // insert new index key
+        new_leaf.parent = leaf.parent = insert_key_to_index(
+                leaf.parent, new_leaf.children[0].key, offset, leaf.next);
+
+        // save leafs with parent updated
+        unmap(&meta);
+        unmap(&leaf, offset);
+        unmap(&new_leaf, leaf.next);
     } else {
-        // insert into array when leaf is not full
-        record_t *r = upper_bound(leaf.children, leaf.children + leaf.n, key);
-        if (r != leaf.children + leaf.n) {
-            // same key?
-            if (keycmp((r - 1)->key, key) == 0)
-                return 1;
-
-            // move forward 1 element
-            std::copy(r, leaf.children + leaf.n, r + 1);
-        }
-
-        r->key = key;
-        r->value = value;
-        leaf.n++;
+        insert_leaf_no_split(&leaf, key, value);
+        unmap(&leaf, offset);
     }
 
-    // save
-    write_leaf_to_disk(&leaf, offset);
-
-    return value;
+    return 0;
 }
 
-void bplus_tree::init_from_empty()
+void bplus_tree::insert_leaf_no_split(leaf_node_t *leaf,
+                                      const key_t &key, const value_t &value)
 {
-    // init default meta
-    meta.order = BP_ORDER;
-    meta.index_size = sizeof(internal_node_t) * 128;
-    meta.value_size = sizeof(value_t);
-    meta.key_size = sizeof(key_t);
-    meta.internal_node_num = meta.leaf_node_num = meta.height = 0;
-    write_meta_to_disk();
+    // insert into array when leaf is not full
+    record_t *r = upper_bound(leaf->children, leaf->children + leaf->n, key);
 
-    // init empty root leaf
-    leaf_node_t leaf;
-    leaf.prev = leaf.next = -1;
-    leaf.n = 0;
-    write_new_leaf_to_disk(&leaf);
+    // move forward 1 element
+    for (record_t *c = leaf->children + leaf->n; c > r; --c)
+        *c = *(c - 1);
+
+    r->key = key;
+    r->value = value;
+    leaf->n++;
 }
 
-off_t bplus_tree::search_leaf_offset(const key_t &key) const
+int bplus_tree::insert_key_to_index(int offset, key_t key,
+                                    off_t old, off_t after)
 {
-    off_t offset = sizeof(meta_t) + meta.index_size;
+    assert(offset >= -1);
 
-    // deep into the leaf
-    int height = meta.height;
-    off_t org = sizeof(meta_t);
-    while (height > 0) {
-        // get current node
-        internal_node_t node;
-        map_index(&node, org);
+    if (offset == -1) {
+        // create new root node
+        internal_node_t root;
+        meta.root_offset = alloc(&root);
+        meta.height++;
 
-        // move org to correct child
-        index_t *r = lower_bound(node.children, node.children + node.n, key);
-        org += r->child;
+        // insert `old` and `after`
+        root.n = 1;
+        root.children[0].key = key;
+        root.children[0].child = old;
+        root.children[1].child = after;
 
-        --height;
+        unmap(&meta);
+        unmap(&root, meta.root_offset);
+        return meta.root_offset;
+    }
+
+    internal_node_t node;
+    map(&node, offset);
+    assert(node.n + 1 <= meta.order);
+
+    if (node.n + 1 == meta.order) {
+        // split when full
+
+        internal_node_t new_node;
+        off_t new_offset = alloc(&new_node);
+
+        // split
+        // note: there are node.n + 1 elements in node.children
+        size_t point = node.n / 2 + 1;
+        std::copy(node.children + point, node.children + node.n + 1,
+                  new_node.children);
+        new_node.n = node.n - point;
+        node.n -= point + 1;
+
+        // give the middle key to the parent
+        // note: middle key's child is reserved in children[node.n]
+        new_node.parent = node.parent = insert_key_to_index(
+                node.parent, node.children[point].key, offset, new_offset);
+        
+        unmap(&meta);
+        unmap(&node, offset);
+        unmap(&new_node, new_offset);
+    } else {
+        insert_key_to_index_no_split(&node, key, after);
+        unmap(&node, offset);
     }
 
     return offset;
 }
 
-void bplus_tree::open_file() const
+void bplus_tree::insert_key_to_index_no_split(internal_node_t *node,
+                                             const key_t &key, off_t value)
 {
-    // `rb+` will make sure we can write everywhere without truncating file
-    if (fp_level == 0) {
-        fp = fopen(path, "rb+");
-        if (!fp)
-            fp = fopen(path, "wb+");
-    }
+    index_t *i = upper_bound(node->children, node->children + node->n,
+                             key);
 
-    ++fp_level;
-}
+    // note: adding key after splitting should be dealt with differently when
+    //       adding to the end or not end
 
-void bplus_tree::close_file() const
-{
-    if (fp_level == 1)
-        fclose(fp);
-
-    --fp_level;
-}
-
-void bplus_tree::sync_meta()
-{
-    open_file();
-    fseek(fp, OFFSET_META, SEEK_SET);
-    fread(&meta, sizeof(meta_t), 1, fp);
-    close_file();
-}
-
-int bplus_tree::map_index(internal_node_t *node, off_t offset) const
-{
-    open_file();
-    fseek(fp, offset, SEEK_SET);
-    fread(node, sizeof(internal_node_t), 1, fp);
-    close_file();
-
-    return 0;
-}
-
-int bplus_tree::map_block(leaf_node_t *leaf, off_t offset) const
-{
-    open_file();
-    fseek(fp, offset, SEEK_SET);
-    fread(leaf, sizeof(leaf_node_t), 1, fp);
-    close_file();
-
-    return 0;
-}
-
-void bplus_tree::write_meta_to_disk() const
-{
-    open_file();
-    fseek(fp, OFFSET_META, SEEK_SET);
-    fwrite(&meta, sizeof(meta_t), 1, fp);
-    close_file();
-}
-
-void bplus_tree::write_leaf_to_disk(leaf_node_t *leaf, off_t offset)
-{
-    open_file();
-    fseek(fp, offset, SEEK_SET);
-    fwrite(leaf, sizeof(leaf_node_t), 1, fp);
-    close_file();
-}
-
-void bplus_tree::write_new_leaf_to_disk(leaf_node_t *leaf)
-{
-    open_file();
-
-    if (leaf->next == -1) {
-        // write new leaf at the end
-        write_leaf_to_disk(leaf, OFFSET_END);
+    if (i == node->children + node->n) {
+        // add index key to end
+        node->children[node->n].key = key;
+        node->children[node->n + 1].child = value;
     } else {
-        // TODO seek to the write position
+        // move later index forward
+        for (index_t *j = node->children + node->n + 1; j > i; --j)
+            *j = *(j - 1);
+
+        // and insert this key
+        i->key = key;
+        i->child = value;
     }
 
-    // increse leaf counter
-    meta.leaf_node_num++;
-    write_meta_to_disk();
+    node->n++;
+}
 
-    close_file();
+off_t bplus_tree::search_index(const key_t &key) const
+{
+    off_t org = meta.root_offset;
+    int height = meta.height;
+    while (height > 1) {
+        internal_node_t node;
+        map(&node, org);
+
+        index_t *i = upper_bound(node.children, node.children + node.n, key);
+        org = i->child;
+        --height;
+    }
+
+    return org;
+}
+
+off_t bplus_tree::search_leaf(const key_t &key) const
+{
+    internal_node_t node;
+    map(&node, search_index(key));
+
+    index_t *i = upper_bound(node.children, node.children + node.n, key);
+    return i->child;
+}
+
+void bplus_tree::init_from_empty()
+{
+    // init default meta
+    bzero(&meta, sizeof(meta_t));
+    meta.order = BP_ORDER;
+    meta.index_size = sizeof(internal_node_t) * 128;
+    meta.value_size = sizeof(value_t);
+    meta.key_size = sizeof(key_t);
+    meta.height = 1;
+
+    // init root node
+    internal_node_t root;
+    meta.root_offset = alloc(&root);
+
+    // init empty leaf
+    leaf_node_t leaf;
+    root.children[0].child = alloc(&leaf);
+    leaf.parent = meta.root_offset;
+
+    // save
+    unmap(&meta);
+    unmap(&root, meta.root_offset);
+    unmap(&leaf, root.children[0].child);
 }
 
 }

@@ -18,12 +18,15 @@ typedef struct {
     size_t internal_node_num; /* how many internal nodes */
     size_t leaf_node_num;     /* how many leafs */
     size_t height;            /* height of tree (exclude leafs) */
+    size_t index_slot; /* where to store new index */
+    size_t block_slot; /* where to store new block */
+    off_t root_offset; /* where is the root of internal nodes */
 } meta_t;
 
 /* internal nodes' index segment */
 struct index_t {
     key_t key;
-    int child; /* child's offset according to the internal node */
+    int child; /* child's offset */
 };
 
 /***
@@ -42,15 +45,12 @@ struct record_t {
     value_t value;
 };
 
-/***
- * leaf node block
- * | int prev | int next | size_t n | size_t i, key_t key, value_t value | ... |
- ***/
+/* leaf node block */
 struct leaf_node_t {
-    int prev;
-    int next;
+    int parent; /* parent node offset */
+    int next; /* next leaf */
     size_t n;
-    record_t children[BP_ORDER - 1];
+    record_t children[BP_ORDER];
 };
 
 /* the encapulated B+ tree */
@@ -66,35 +66,122 @@ public:
 
 public:
     char path[512];
-
     meta_t meta;
 
     /* init empty tree */
     void init_from_empty();
 
+    /* find index */
+    off_t search_index(const key_t &key) const;
+
     /* find leaf */
-    off_t search_leaf_offset(const key_t &key) const;
-    int search_leaf(const key_t &key, leaf_node_t *leaf) const
-    {
-        return map_block(leaf, search_leaf_offset(key));
-    }
+    off_t search_leaf(const key_t &key) const;
+
+    /* insert into leaf without split */
+    void insert_leaf_no_split(leaf_node_t *leaf,
+                              const key_t &key, const value_t &value);
+
+    /* add key to the internal node */
+    int insert_key_to_index(int offset, key_t key,
+                            off_t value, off_t after);
+
+    void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
+                                      off_t value);
 
     /* multi-level file open/close */
     mutable FILE *fp;
     mutable int fp_level;
-    inline void open_file() const;
-    inline void close_file() const;
+    void open_file() const
+    {
+        // `rb+` will make sure we can write everywhere without truncating file
+        if (fp_level == 0) {
+            fp = fopen(path, "rb+");
+            if (!fp) // new file
+                fp = fopen(path, "wb+");
+        }
 
-    /* read tree from disk */
-    void sync_meta();
-    int map_index(internal_node_t *node, off_t offset) const;
-    int map_block(leaf_node_t *leaf, off_t offset) const;
+        ++fp_level;
+    }
 
-    /* write tree to disk */
-    void write_meta_to_disk() const;
-    void write_leaf_to_disk(leaf_node_t *leaf, off_t offset);
-    void write_new_leaf_to_disk(leaf_node_t *leaf);
-    void sync_leaf_to_disk(leaf_node_t *leaf) const;
+    void close_file() const
+    {
+        if (fp_level == 1)
+            fclose(fp);
+
+        --fp_level;
+    }
+
+    /* alloc from disk */
+    off_t alloc(leaf_node_t *leaf)
+    {
+        leaf->parent = leaf->next = -1;
+        leaf->n = 0;
+        ++meta.leaf_node_num;
+        ++meta.block_slot;
+        return sizeof(leaf_node_t) * (meta.block_slot - 1);
+    }
+
+    off_t alloc(internal_node_t *node)
+    {
+        node->parent = -1;
+        node->n = 0;
+        ++meta.internal_node_num;
+        ++meta.index_slot;
+        return sizeof(internal_node_t) * (meta.index_slot - 1);
+    }
+
+    off_t unalloc(leaf_node_t *leaf);
+    off_t unalloc(internal_node_t *node);
+
+    /* read block from disk */
+    template<class T>
+    void rmap(T *block, off_t offset) const
+    {
+        open_file();
+        fseek(fp, offset, SEEK_SET);
+        fread(block, sizeof(T), 1, fp);
+        close_file();
+    }
+
+    /* write block to disk */
+    template<class T>
+    void runmap(T *block, off_t offset) const
+    {
+        open_file();
+        fseek(fp, offset, SEEK_SET);
+        fwrite(block, sizeof(T), 1, fp);
+        close_file();
+    }
+
+    void map(leaf_node_t *leaf, off_t offset) const
+    {
+        rmap(leaf, offset + OFFSET_BLOCK);
+    }
+
+    void map(internal_node_t *node, off_t offset) const
+    {
+        rmap(node, offset + OFFSET_INDEX);
+    }
+
+    void map(meta_t *m) const
+    {
+        rmap(m, OFFSET_META);
+    }
+
+    void unmap(leaf_node_t *leaf, off_t offset) const
+    {
+        runmap(leaf, offset + OFFSET_BLOCK);
+    }
+
+    void unmap(internal_node_t *node, off_t offset) const
+    {
+        runmap(node, offset + OFFSET_INDEX);
+    }
+
+    void unmap(meta_t *m) const
+    {
+        runmap(m, OFFSET_META);
+    }
 };
 
 }
