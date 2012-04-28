@@ -26,17 +26,10 @@ PRGNAME = bpt_cli
 DUMP_OBJ = bpt.o util/dump_numbers.o
 DUMPPRGNAME = bpt_dump_numbers
 
-UNIT_TEST_OBJ = bpt.o unit_test.o
-TESTPRGNAME = bpt_unit_test
-
 all: $(DUMPPRGNAME) $(PRGNAME)
 
 test:
-	$(MAKE) clean
 	$(MAKE) TEST="-DUNIT_TEST" bpt_unit_test
-	./bpt_unit_test
-
-run:
 	./bpt_unit_test
 
 gprof:
@@ -60,8 +53,8 @@ dep:
 bpt_cli: $(OBJ)
 	$(QUIET_LINK)$(CXX) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK)
 
-bpt_unit_test: $(UNIT_TEST_OBJ)
-	$(QUIET_LINK)$(CXX) -o $(TESTPRGNAME) $(CCOPT) $(DEBUG) $(UNIT_TEST_OBJ) $(CCLINK)
+bpt_unit_test:
+	$(QUIET_LINK)$(CXX) -o bpt_unit_test $(CCOPT) $(DEBUG) util/unit_test.cc bpt.cc $(TEST) $(CCLINK) 
 
 bpt_dump_numbers: $(DUMP_OBJ)
 	$(QUIET_LINK)$(CXX) -o $(DUMPPRGNAME) $(CCOPT) $(DEBUG) $(DUMP_OBJ) $(CCLINK)
