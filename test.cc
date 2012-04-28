@@ -5,7 +5,6 @@
 
 #define PRINT(a) fprintf(stderr, "\033[33m%s\033[0m \033[32m%s\033[0m\n", a, "Passed")
 
-#define BP_ORDER 4
 #include "bpt.h"
 using bpt::bplus_tree;
 
@@ -19,8 +18,6 @@ int main(int argc, char *argv[])
     assert(tree.meta.internal_node_num == 1);
     assert(tree.meta.leaf_node_num == 1);
     assert(tree.meta.height == 1);
-    assert(tree.meta.block_slot == 1);
-    assert(tree.meta.index_slot == 1);
     PRINT("EmptyTree");
     }
 
@@ -32,8 +29,6 @@ int main(int argc, char *argv[])
     assert(tree.meta.internal_node_num == 1);
     assert(tree.meta.leaf_node_num == 1);
     assert(tree.meta.height == 1);
-    assert(tree.meta.block_slot == 1);
-    assert(tree.meta.index_slot == 1);
     PRINT("ReReadEmptyTree");
 
     assert(tree.insert("t2", 2) == 0);
@@ -88,7 +83,7 @@ int main(int argc, char *argv[])
     off_t index_off = tree.search_index("t1");
     tree.map(&index, index_off);
     assert(index.n == 1);
-    assert(index.parent == -1);
+    assert(index.parent == 0);
     assert(bpt::keycmp(index.children[0].key, "t4") == 0);
 
     bpt::leaf_node_t leaf1, leaf2;
@@ -148,7 +143,7 @@ int main(int argc, char *argv[])
     off_t index_off = tree.search_index("t8");
     tree.map(&index, index_off);
     assert(index.n == 2);
-    assert(index.parent == -1);
+    assert(index.parent == 0);
     assert(bpt::keycmp(index.children[0].key, "t4") == 0);
     assert(bpt::keycmp(index.children[1].key, "t7") == 0);
 
@@ -164,7 +159,7 @@ int main(int argc, char *argv[])
     assert(index.children[2].child == leaf3_off);
     assert(leaf1.next == leaf2_off);
     assert(leaf2.next == leaf3_off);
-    assert(leaf3.next == -1);
+    assert(leaf3.next == 0);
     PRINT("SplitLeafBy3");
     }
 

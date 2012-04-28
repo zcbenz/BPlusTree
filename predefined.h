@@ -6,18 +6,7 @@
 namespace bpt {
 
 /* predefined B+ info */
-#ifndef BP_ORDER
-    #define BP_ORDER 4
-#endif
-
-#ifndef BP_MAXINDEX
-    #define BP_MAXINDEX 256
-#endif
-
-/* offsets */
-#define OFFSET_META 0
-#define OFFSET_INDEX OFFSET_META + sizeof(meta_t)
-#define OFFSET_BLOCK OFFSET_INDEX + meta.index_size
+#define BP_ORDER 4
 
 /* key/value type */
 typedef int value_t;

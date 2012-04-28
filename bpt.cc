@@ -31,7 +31,7 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
         init_from_empty();
     else
         // read tree from file
-        map(&meta);
+        map(&meta, OFFSET_META);
 }
 
 int bplus_tree::search(const key_t& key, value_t *value) const
@@ -92,7 +92,7 @@ int bplus_tree::insert(const key_t& key, value_t value)
                             offset, leaf.next, true);
 
         // save leafs
-        unmap(&meta);
+        unmap(&meta, OFFSET_META);
         unmap(&leaf, offset);
         unmap(&new_leaf, leaf.next);
     } else {
@@ -118,12 +118,10 @@ void bplus_tree::insert_leaf_no_split(leaf_node_t *leaf,
     leaf->n++;
 }
 
-int bplus_tree::insert_key_to_index(int offset, const key_t &key,
+int bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
                                     off_t old, off_t after, bool is_leaf)
 {
-    assert(offset >= -1);
-
-    if (offset == -1) {
+    if (offset == 0) {
         // create new root node
         internal_node_t root;
         meta.root_offset = alloc(&root);
@@ -135,7 +133,7 @@ int bplus_tree::insert_key_to_index(int offset, const key_t &key,
         root.children[0].child = old;
         root.children[1].child = after;
 
-        unmap(&meta);
+        unmap(&meta, OFFSET_META);
         unmap(&root, meta.root_offset);
         return meta.root_offset;
     }
@@ -191,7 +189,7 @@ int bplus_tree::insert_key_to_index(int offset, const key_t &key,
         node.parent = new_node.parent = insert_key_to_index(
                     node.parent, middle_key, offset, new_offset, false);
 
-        unmap(&meta);
+        unmap(&meta, OFFSET_META);
         unmap(&node, offset);
         unmap(&new_node, new_offset);
 
@@ -223,7 +221,7 @@ void bplus_tree::insert_key_to_index_no_split(internal_node_t *node,
 }
 
 void bplus_tree::reset_index_children_parent(index_t *begin, index_t *end,
-                                             int parent)
+                                             off_t parent)
 {
     internal_node_t node;
     while (begin != end) {
@@ -264,10 +262,10 @@ void bplus_tree::init_from_empty()
     // init default meta
     bzero(&meta, sizeof(meta_t));
     meta.order = BP_ORDER;
-    meta.index_size = sizeof(internal_node_t) * BP_MAXINDEX;
     meta.value_size = sizeof(value_t);
     meta.key_size = sizeof(key_t);
     meta.height = 1;
+    meta.slot = OFFSET_BLOCK;
 
     // init root node
     internal_node_t root;
@@ -278,7 +276,7 @@ void bplus_tree::init_from_empty()
     root.children[0].child = alloc(&leaf);
 
     // save
-    unmap(&meta);
+    unmap(&meta, OFFSET_META);
     unmap(&root, meta.root_offset);
     unmap(&leaf, root.children[0].child);
 }

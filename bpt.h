@@ -10,17 +10,19 @@
 
 namespace bpt {
 
+/* offsets */
+#define OFFSET_META 0
+#define OFFSET_BLOCK OFFSET_META + sizeof(meta_t)
+
 /* meta information of B+ tree */
 typedef struct {
     size_t order; /* `order` of B+ tree */
-    size_t index_size; /* size of the whole index area */
     size_t value_size; /* size of value */
     size_t key_size;   /* size of key */
     size_t internal_node_num; /* how many internal nodes */
     size_t leaf_node_num;     /* how many leafs */
     size_t height;            /* height of tree (exclude leafs) */
-    size_t index_slot; /* where to store new index */
-    size_t block_slot; /* where to store new block */
+    off_t slot;        /* where to store new block */
     off_t root_offset; /* where is the root of internal nodes */
 } meta_t;
 
@@ -32,10 +34,9 @@ struct index_t {
 
 /***
  * internal node block
- * | int parent | size_t n | key_t key, size_t child | ... |
  ***/
 struct internal_node_t {
-    int parent; /* parent node offset */
+    off_t parent; /* parent node offset */
     size_t n; /* how many children */
     index_t children[BP_ORDER];
 };
@@ -48,7 +49,7 @@ struct record_t {
 
 /* leaf node block */
 struct leaf_node_t {
-    int next; /* next leaf */
+    off_t next; /* next leaf */
     size_t n;
     record_t children[BP_ORDER];
 };
@@ -86,12 +87,14 @@ public:
                               const key_t &key, const value_t &value);
 
     /* add key to the internal node */
-    int insert_key_to_index(int offset, const key_t &key,
+    int insert_key_to_index(off_t offset, const key_t &key,
                             off_t value, off_t after, bool is_leaf);
     void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
                                       off_t value);
 
-    void reset_index_children_parent(index_t *begin, index_t *end, int parent);
+    /* change children's parent */
+    void reset_index_children_parent(index_t *begin, index_t *end,
+                                     off_t parent);
 
     /* multi-level file open/close */
     mutable FILE *fp;
@@ -117,23 +120,28 @@ public:
     }
 
     /* alloc from disk */
+    template<class T>
+    off_t dalloc(T *leaf)
+    {
+        off_t slot = meta.slot;
+        meta.slot += sizeof(leaf_node_t);
+        return slot;
+    }
+
     off_t alloc(leaf_node_t *leaf)
     {
-        leaf->next = -1;
+        leaf->next = 0;
         leaf->n = 0;
-        ++meta.leaf_node_num;
-        ++meta.block_slot;
-        return sizeof(leaf_node_t) * (meta.block_slot - 1);
+        meta.leaf_node_num += 1;
+        return dalloc(leaf);
     }
 
     off_t alloc(internal_node_t *node)
     {
-        node->parent = -1;
+        node->parent = 0;
         node->n = 0;
-        ++meta.internal_node_num;
-        ++meta.index_slot;
-        assert(meta.internal_node_num < BP_MAXINDEX);
-        return sizeof(internal_node_t) * (meta.index_slot - 1);
+        meta.internal_node_num += 1;
+        return dalloc(node);
     }
 
     off_t unalloc(leaf_node_t *leaf);
@@ -141,7 +149,7 @@ public:
 
     /* read block from disk */
     template<class T>
-    void rmap(T *block, off_t offset) const
+    void map(T *block, off_t offset) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
@@ -151,42 +159,12 @@ public:
 
     /* write block to disk */
     template<class T>
-    void runmap(T *block, off_t offset) const
+    void unmap(T *block, off_t offset) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
         fwrite(block, sizeof(T), 1, fp);
         close_file();
-    }
-
-    void map(leaf_node_t *leaf, off_t offset) const
-    {
-        rmap(leaf, offset + OFFSET_BLOCK);
-    }
-
-    void map(internal_node_t *node, off_t offset) const
-    {
-        rmap(node, offset + OFFSET_INDEX);
-    }
-
-    void map(meta_t *m) const
-    {
-        rmap(m, OFFSET_META);
-    }
-
-    void unmap(leaf_node_t *leaf, off_t offset) const
-    {
-        runmap(leaf, offset + OFFSET_BLOCK);
-    }
-
-    void unmap(internal_node_t *node, off_t offset) const
-    {
-        runmap(node, offset + OFFSET_INDEX);
-    }
-
-    void unmap(meta_t *m) const
-    {
-        runmap(m, OFFSET_META);
     }
 };
 
