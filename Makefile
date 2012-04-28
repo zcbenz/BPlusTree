@@ -21,12 +21,12 @@ QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(EN
 endif
 
 OBJ = bpt.o test.o
-PRGNAME = bpt
+PRGNAME = bpt_unit_test
 
-all: bpt
+all: bpt_unit_test
 
 run:
-	./bpt
+	./bpt_unit_test
 
 gprof:
 	$(MAKE) PROF="-pg"
@@ -46,7 +46,7 @@ distclean: clean
 dep:
 	$(CC) -MM *.cc
 
-bpt: $(OBJ)
+bpt_unit_test: $(OBJ)
 	$(QUIET_LINK)$(CXX) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK)
 
 %.o: %.cc
