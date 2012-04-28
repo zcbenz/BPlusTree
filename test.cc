@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <algorithm>
 
-#define PRINT(a) printf("\033[33m%s\033[0m \033[32m%s\033[0m\n", a, "Passed")
+#define PRINT(a) fprintf(stderr, "\033[33m%s\033[0m \033[32m%s\033[0m\n", a, "Passed")
 
 #define BP_ORDER 4
 #include "bpt.h"
@@ -93,7 +95,6 @@ int main(int argc, char *argv[])
     off_t leaf1_off = tree.search_leaf("t1");
     assert(leaf1_off == index.children[0].child);
     tree.map(&leaf1, leaf1_off);
-    assert(leaf1.parent == index_off);
     assert(leaf1.n == 3);
     assert(bpt::keycmp(leaf1.children[0].key, "t1") == 0);
     assert(bpt::keycmp(leaf1.children[1].key, "t2") == 0);
@@ -103,7 +104,6 @@ int main(int argc, char *argv[])
     assert(leaf1.next == leaf2_off);
     assert(leaf2_off == index.children[1].child);
     tree.map(&leaf2, leaf2_off);
-    assert(leaf2.parent == index_off);
     assert(leaf2.n == 2);
     assert(bpt::keycmp(leaf2.children[0].key, "t4") == 0);
     assert(bpt::keycmp(leaf2.children[1].key, "t5") == 0);
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
         assert(value == i);
     }
 
-    PRINT("Insert14Elements");
+    PRINT("CreateNewRoot");
     }
 
     {
@@ -324,8 +324,233 @@ int main(int argc, char *argv[])
         assert(tree.search(key, &value) == 0);
         assert(value == i);
     }
+    assert(tree.insert("51", 51) == 1);
+    assert(tree.insert("52", 52) == 1);
     PRINT("SplitInTheMiddle");
     }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 15; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    assert(tree.meta.internal_node_num == 3);
+    assert(tree.meta.leaf_node_num == 5);
+    assert(tree.meta.height == 2);
+
+    bpt::internal_node_t node1, node2, root;
+    tree.map(&root, tree.meta.root_offset);
+    off_t node1_off = tree.search_index("0");
+    off_t node2_off = tree.search_index("6");
+    tree.map(&node1, node1_off);
+    tree.map(&node2, node2_off);
+    assert(root.n == 1);
+    assert(bpt::keycmp(root.children[0].key, "3") == 0);
+    assert(root.children[0].child == node1_off);
+    assert(root.children[1].child == node2_off);
+    assert(node1.n == 2);
+    assert(bpt::keycmp(node1.children[0].key, "11") == 0);
+    assert(bpt::keycmp(node1.children[1].key, "14") == 0);
+    assert(node2.n == 1);
+    assert(bpt::keycmp(node2.children[0].key, "6") == 0);
+    for (int i = 0; i < 15; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == i);
+    }
+    PRINT("CreateNewRootInMiddle");
+    }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 30; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    assert(tree.meta.internal_node_num == 5);
+    assert(tree.meta.leaf_node_num == 10);
+    assert(tree.meta.height == 2);
+
+    bpt::internal_node_t node1, node2, node3, node4, root;
+    tree.map(&root, tree.meta.root_offset);
+    off_t node1_off = tree.search_index("11");
+    off_t node2_off = tree.search_index("22");
+    off_t node3_off = tree.search_index("28");
+    off_t node4_off = tree.search_index("6");
+    tree.map(&node1, node1_off);
+    tree.map(&node2, node2_off);
+    tree.map(&node3, node3_off);
+    tree.map(&node4, node4_off);
+    assert(root.n == 3);
+    assert(bpt::keycmp(root.children[0].key, "17") == 0);
+    assert(bpt::keycmp(root.children[1].key, "25") == 0);
+    assert(bpt::keycmp(root.children[2].key, "3") == 0);
+    assert(root.children[0].child == node1_off);
+    assert(root.children[1].child == node2_off);
+    assert(root.children[2].child == node3_off);
+    assert(root.children[3].child == node4_off);
+    assert(node1.n == 2);
+    assert(bpt::keycmp(node1.children[0].key, "11") == 0);
+    assert(bpt::keycmp(node1.children[1].key, "14") == 0);
+    assert(node2.n == 2);
+    assert(bpt::keycmp(node2.children[0].key, "2") == 0);
+    assert(bpt::keycmp(node2.children[1].key, "22") == 0);
+    assert(node3.n == 1);
+    assert(bpt::keycmp(node3.children[0].key, "28") == 0);
+    assert(node4.n == 1);
+    assert(bpt::keycmp(node4.children[0].key, "6") == 0);
+
+    for (int i = 0; i < 30; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == i);
+    }
+    PRINT("SplitAfterNewRoot");
+    }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 49; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    assert(tree.meta.internal_node_num == 9);
+    assert(tree.meta.leaf_node_num == 17);
+    assert(tree.meta.height == 3);
+
+    bpt::internal_node_t root;
+    tree.map(&root, tree.meta.root_offset);
+    assert(root.n == 1);
+    assert(bpt::keycmp(root.children[0].key, "3") == 0);
+
+    bpt::internal_node_t node1, node2;
+    tree.map(&node1, root.children[0].child);
+    tree.map(&node2, root.children[1].child);
+    assert(node1.n == 2);
+    assert(bpt::keycmp(node1.children[0].key, "17") == 0);
+    assert(bpt::keycmp(node1.children[1].key, "25") == 0);
+    assert(node2.n == 2);
+    assert(bpt::keycmp(node2.children[0].key, "4") == 0);
+    assert(bpt::keycmp(node2.children[1].key, "45") == 0);
+
+    bpt::internal_node_t node3, node4, node5;
+    tree.map(&node3, node2.children[0].child);
+    assert(node3.n == 3);
+    assert(bpt::keycmp(node3.children[0].key, "32") == 0);
+    assert(bpt::keycmp(node3.children[1].key, "35") == 0);
+    assert(bpt::keycmp(node3.children[2].key, "38") == 0);
+    tree.map(&node4, node2.children[1].child);
+    assert(node4.n == 1);
+    assert(bpt::keycmp(node4.children[0].key, "42") == 0);
+    tree.map(&node5, node2.children[2].child);
+    assert(node5.n == 2);
+    assert(bpt::keycmp(node5.children[0].key, "48") == 0);
+    assert(bpt::keycmp(node5.children[1].key, "6") == 0);
+
+    for (int i = 0; i < 49; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == i);
+    }
+    PRINT("DanglingMiddleKey");
+    }
+
+    const int size = 512;
+    int numbers[size];
+    for (int i = 0; i < size; i++)
+        numbers[i] = i;
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < size; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", numbers[i]);
+        assert(tree.insert(key, numbers[i]) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    for (int i = 0; i < size; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", numbers[i]);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == numbers[i]);
+    }
+    PRINT("InsertManyKeys");
+    }
+
+    std::reverse(numbers, numbers + size);
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < size; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", numbers[i]);
+        assert(tree.insert(key, numbers[i]) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    for (int i = 0; i < size; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", numbers[i]);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == numbers[i]);
+    }
+    PRINT("InsertManyKeysReverse");
+    }
+
+    for (int i = 0; i < 10; i++) {
+        std::random_shuffle(numbers, numbers + size);
+        {
+        bplus_tree tree("test.db", true);
+        for (int i = 0; i < size; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[i]);
+            assert(tree.insert(key, numbers[i]) == 0);
+        }
+        }
+
+        {
+        bplus_tree tree("test.db");
+        for (int i = 0; i < size; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[i]);
+            bpt::value_t value;
+            assert(tree.search(key, &value) == 0);
+            assert(value == numbers[i]);
+        }
+        }
+    }
+
+    PRINT("InsertManyKeysRandom");
+
+    unlink("test.db");
 
     return 0;
 }

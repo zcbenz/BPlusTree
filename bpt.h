@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "predefined.h"
 
@@ -26,7 +27,7 @@ typedef struct {
 /* internal nodes' index segment */
 struct index_t {
     key_t key;
-    int child; /* child's offset */
+    off_t child; /* child's offset */
 };
 
 /***
@@ -47,7 +48,6 @@ struct record_t {
 
 /* leaf node block */
 struct leaf_node_t {
-    int parent; /* parent node offset */
     int next; /* next leaf */
     size_t n;
     record_t children[BP_ORDER];
@@ -75,18 +75,23 @@ public:
     off_t search_index(const key_t &key) const;
 
     /* find leaf */
-    off_t search_leaf(const key_t &key) const;
+    off_t search_leaf(off_t index, const key_t &key) const;
+    off_t search_leaf(const key_t &key) const
+    {
+        return search_leaf(search_index(key), key);
+    }
 
     /* insert into leaf without split */
     void insert_leaf_no_split(leaf_node_t *leaf,
                               const key_t &key, const value_t &value);
 
     /* add key to the internal node */
-    int insert_key_to_index(int offset, key_t key,
-                            off_t value, off_t after);
-
+    int insert_key_to_index(int offset, const key_t &key,
+                            off_t value, off_t after, bool is_leaf);
     void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
                                       off_t value);
+
+    void reset_index_children_parent(index_t *begin, index_t *end, int parent);
 
     /* multi-level file open/close */
     mutable FILE *fp;
@@ -114,7 +119,7 @@ public:
     /* alloc from disk */
     off_t alloc(leaf_node_t *leaf)
     {
-        leaf->parent = leaf->next = -1;
+        leaf->next = -1;
         leaf->n = 0;
         ++meta.leaf_node_num;
         ++meta.block_slot;
@@ -127,6 +132,7 @@ public:
         node->n = 0;
         ++meta.internal_node_num;
         ++meta.index_slot;
+        assert(meta.internal_node_num < BP_MAXINDEX);
         return sizeof(internal_node_t) * (meta.index_slot - 1);
     }
 

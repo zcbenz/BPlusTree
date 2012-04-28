@@ -53,5 +53,5 @@ bpt: $(OBJ)
 	$(QUIET_CC)$(CXX) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) $<
 
 # Deps (use make dep to generate this)
-bpt.o: bpt.cc bpt.h
-test.o: test.cc bpt.h
+bpt.o: bpt.cc bpt.h predefined.h
+test.o: test.cc bpt.h predefined.h
