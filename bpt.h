@@ -87,8 +87,8 @@ public:
                               const key_t &key, const value_t &value);
 
     /* add key to the internal node */
-    int insert_key_to_index(off_t offset, const key_t &key,
-                            off_t value, off_t after, bool is_leaf);
+    void insert_key_to_index(off_t offset, const key_t &key,
+                             off_t value, off_t after, bool is_leaf);
     void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
                                       off_t value);
 

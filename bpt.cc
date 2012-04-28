@@ -118,8 +118,8 @@ void bplus_tree::insert_leaf_no_split(leaf_node_t *leaf,
     leaf->n++;
 }
 
-int bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
-                                    off_t old, off_t after, bool is_leaf)
+void bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
+                                     off_t old, off_t after, bool is_leaf)
 {
     if (offset == 0) {
         // create new root node
@@ -135,7 +135,13 @@ int bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
 
         unmap(&meta, OFFSET_META);
         unmap(&root, meta.root_offset);
-        return meta.root_offset;
+
+        // update children's parent
+        if (!is_leaf)
+            reset_index_children_parent(root.children,
+                                        root.children + root.n + 1,
+                                        meta.root_offset);
+        return;
     }
 
     internal_node_t node;
@@ -166,7 +172,18 @@ int bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
         std::copy(node.children + point + 1, node.children + node.n + 1,
                   new_node.children);
         new_node.n = node.n - point - 1;
+        new_node.parent = node.parent;
         node.n = point;
+
+        // put the new key
+        if (place_right)
+            insert_key_to_index_no_split(&new_node, key, after);
+        else
+            insert_key_to_index_no_split(&node, key, after);
+
+        unmap(&meta, OFFSET_META);
+        unmap(&node, offset);
+        unmap(&new_node, new_offset);
 
         // update children's parent
         if (!is_leaf)
@@ -174,31 +191,12 @@ int bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
                                         new_node.children + new_node.n + 1,
                                         new_offset);
 
-        // put the new key
-        int return_parent;
-        if (place_right) {
-            return_parent = new_offset;
-            insert_key_to_index_no_split(&new_node, key, after);
-        } else {
-            return_parent = offset;
-            insert_key_to_index_no_split(&node, key, after);
-        }
-
         // give the middle key to the parent
         // note: middle key's child is reserved in children[node.n]
-        node.parent = new_node.parent = insert_key_to_index(
-                    node.parent, middle_key, offset, new_offset, false);
-
-        unmap(&meta, OFFSET_META);
-        unmap(&node, offset);
-        unmap(&new_node, new_offset);
-
-        return return_parent;
+        insert_key_to_index(node.parent, middle_key, offset, new_offset, false);
     } else {
         insert_key_to_index_no_split(&node, key, after);
         unmap(&node, offset);
-
-        return offset;
     }
 }
 

@@ -472,7 +472,7 @@ int main(int argc, char *argv[])
     PRINT("DanglingMiddleKey");
     }
 
-    const int size = 512;
+    const int size = 128;
     int numbers[size];
     for (int i = 0; i < size; i++)
         numbers[i] = i;
