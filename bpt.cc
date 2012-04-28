@@ -71,7 +71,8 @@ int bplus_tree::insert(const key_t& key, value_t value)
 
         // find even split point
         size_t point = leaf.n / 2;
-        if (keycmp(key, leaf.children[point].key) > 0)
+        bool place_right = keycmp(key, leaf.children[point].key) > 0;
+        if (place_right)
             ++point;
 
         // split
@@ -81,10 +82,10 @@ int bplus_tree::insert(const key_t& key, value_t value)
         leaf.n = point;
 
         // which part do we put the key
-        if (keycmp(key, new_leaf.children[0].key) < 0)
-            insert_leaf_no_split(&leaf, key, value);
-        else
+        if (place_right)
             insert_leaf_no_split(&new_leaf, key, value);
+        else
+            insert_leaf_no_split(&leaf, key, value);
 
         // insert new index key
         new_leaf.parent = leaf.parent = insert_key_to_index(
@@ -149,19 +150,30 @@ int bplus_tree::insert_key_to_index(int offset, key_t key,
         internal_node_t new_node;
         off_t new_offset = alloc(&new_node);
 
+        // find even split point
+        size_t point = node.n / 2;
+        bool place_right = keycmp(key, node.children[point].key) > 0;
+        if (place_right)
+            ++point;
+
         // split
         // note: there are node.n + 1 elements in node.children
-        size_t point = node.n / 2 + 1;
-        std::copy(node.children + point, node.children + node.n + 1,
+        std::copy(node.children + point + 1, node.children + node.n + 1,
                   new_node.children);
-        new_node.n = node.n - point;
-        node.n -= point + 1;
+        new_node.n = node.n - point - 1;
+        node.n = point;
+
+        // put the new key
+        if (place_right)
+            insert_key_to_index_no_split(&new_node, key, after);
+        else
+            insert_key_to_index_no_split(&node, key, after);
 
         // give the middle key to the parent
         // note: middle key's child is reserved in children[node.n]
         new_node.parent = node.parent = insert_key_to_index(
                 node.parent, node.children[point].key, offset, new_offset);
-        
+
         unmap(&meta);
         unmap(&node, offset);
         unmap(&new_node, new_offset);
@@ -179,22 +191,14 @@ void bplus_tree::insert_key_to_index_no_split(internal_node_t *node,
     index_t *i = upper_bound(node->children, node->children + node->n,
                              key);
 
-    // note: adding key after splitting should be dealt with differently when
-    //       adding to the end or not end
+    // move later index forward
+    for (index_t *j = node->children + node->n + 1; j > i; --j)
+        *j = *(j - 1);
 
-    if (i == node->children + node->n) {
-        // add index key to end
-        node->children[node->n].key = key;
-        node->children[node->n + 1].child = value;
-    } else {
-        // move later index forward
-        for (index_t *j = node->children + node->n + 1; j > i; --j)
-            *j = *(j - 1);
-
-        // and insert this key
-        i->key = key;
-        i->child = value;
-    }
+    // insert this key
+    i->key = key;
+    i->child = (i + 1)->child;
+    (i + 1)->child = value;
 
     node->n++;
 }
