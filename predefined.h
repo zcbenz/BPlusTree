@@ -6,12 +6,16 @@
 namespace bpt {
 
 /* predefined B+ info */
+#ifndef UNIT_TEST
+#define BP_ORDER 20
+#else
 #define BP_ORDER 4
+#endif
 
 /* key/value type */
 typedef int value_t;
 struct key_t {
-    char k[8];
+    char k[16];
 
     key_t(const char *str = "")
     {

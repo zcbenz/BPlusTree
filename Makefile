@@ -20,13 +20,21 @@ QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CXX$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLO
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR);
 endif
 
-OBJ = bpt.o test.o
-PRGNAME = bpt_unit_test
+DUMP_OBJ = bpt.o dump_numbers.o
+DUMPPRGNAME = bpt_dump_numbers
 
-all: bpt_unit_test
+UNIT_TEST_OBJ = bpt.o unit_test.o
+TESTPRGNAME = bpt_unit_test
+
+all: $(DUMPPRGNAME)
+
+test:
+	$(MAKE) clean
+	$(MAKE) TEST="-DUNIT_TEST" bpt_unit_test
+	./bpt_unit_test
 
 run:
-	./bpt_unit_test
+	./bpt
 
 gprof:
 	$(MAKE) PROF="-pg"
@@ -38,7 +46,7 @@ noopt:
 	$(MAKE) OPTIMIZATION=""
 
 clean:
-	rm -rf $(PRGNAME) $(BENCHPRGNAME) $(CLIPRGNAME) $(CHECKDUMPPRGNAME) $(CHECKAOFPRGNAME) *.o *.gcda *.gcno *.gcov
+	rm -rf $(PRGNAME) $(TESTPRGNAME) $(DUMPPRGNAME) $(CHECKDUMPPRGNAME) $(CHECKAOFPRGNAME) *.o *.gcda *.gcno *.gcov
 
 distclean: clean
 	$(MAKE) clean
@@ -46,12 +54,16 @@ distclean: clean
 dep:
 	$(CC) -MM *.cc
 
-bpt_unit_test: $(OBJ)
-	$(QUIET_LINK)$(CXX) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK)
+bpt_unit_test: $(UNIT_TEST_OBJ)
+	$(QUIET_LINK)$(CXX) -o $(TESTPRGNAME) $(CCOPT) $(DEBUG) $(UNIT_TEST_OBJ) $(CCLINK)
+
+bpt_dump_numbers: $(DUMP_OBJ)
+	$(QUIET_LINK)$(CXX) -o $(DUMPPRGNAME) $(CCOPT) $(DEBUG) $(DUMP_OBJ) $(CCLINK)
 
 %.o: %.cc
-	$(QUIET_CC)$(CXX) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) $<
+	$(QUIET_CC)$(CXX) -c $(CFLAGS) $(TEST) $(DEBUG) $(COMPILE_TIME) $<
 
 # Deps (use make dep to generate this)
 bpt.o: bpt.cc bpt.h predefined.h
-test.o: test.cc bpt.h predefined.h
+dump_numbers.o: dump_numbers.cc bpt.h predefined.h
+unit_test.o: unit_test.cc bpt.h predefined.h

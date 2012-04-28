@@ -18,20 +18,16 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
     bzero(path, sizeof(path));
     strcpy(path, p);
 
-    if (!force_empty) {
-        FILE *fp = fopen(path, "r");
-        if (!fp)
-            force_empty = true;
-        else
-            fclose(fp);
-    }
-
-    if (force_empty)
+    if (force_empty) {
         // create empty tree if file doesn't exist
         init_from_empty();
-    else
+        FILE *fp = fopen(path, "w");
+        fprintf(fp, " ");
+        fclose(fp);
+    } else {
         // read tree from file
         map(&meta, OFFSET_META);
+    }
 }
 
 int bplus_tree::search(const key_t& key, value_t *value) const

@@ -65,7 +65,11 @@ public:
     int insert(const key_t& key, value_t value);
     int update(const key_t& key, value_t value);
 
+#ifndef UNIT_TEST
+private:
+#else
 public:
+#endif
     char path[512];
     meta_t meta;
 

@@ -2,3 +2,4 @@
 *.db
 bpt
 bpt_unit_test
+bpt_dump_numbers
