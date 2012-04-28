@@ -1,8 +1,8 @@
-BPlushTree
+BPlusTree
 ==========
 
 This is my simple implementation of B+ Tree, the keys, values, and nodes are of
-fixed size, and you need to recompile when change some important parameters.
+fixed size, and you need to recompile when changing some important parameters.
 
 The main advantages of my implementation is:
 
