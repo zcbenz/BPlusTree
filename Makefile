@@ -3,7 +3,7 @@
 # This file is released under the BSD license, see the COPYING file
 
 OPTIMIZATION?=
-CFLAGS?=-std=c++0x $(OPTIMIZATION) -Wall $(PROF)
+CFLAGS?=-std=c++0x $(OPTIMIZATION) -Wall $(PROF) -I.
 CCLINK?=
 DEBUG?=-g -ggdb
 CCOPT= $(CFLAGS) $(ARCH) $(PROF)
@@ -20,10 +20,10 @@ QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CXX$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLO
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR);
 endif
 
-OBJ = bpt.o cli.o
+OBJ = bpt.o util/cli.o
 PRGNAME = bpt_cli
 
-DUMP_OBJ = bpt.o dump_numbers.o
+DUMP_OBJ = bpt.o util/dump_numbers.o
 DUMPPRGNAME = bpt_dump_numbers
 
 UNIT_TEST_OBJ = bpt.o unit_test.o
@@ -49,7 +49,7 @@ noopt:
 	$(MAKE) OPTIMIZATION=""
 
 clean:
-	rm -rf $(PRGNAME) $(TESTPRGNAME) $(DUMPPRGNAME) $(CHECKDUMPPRGNAME) $(CHECKAOFPRGNAME) *.o *.gcda *.gcno *.gcov
+	rm -rf $(PRGNAME) $(TESTPRGNAME) $(DUMPPRGNAME) $(CHECKDUMPPRGNAME) $(CHECKAOFPRGNAME) *.o *.gcda *.gcno *.gcov util/*.o
 
 distclean: clean
 	$(MAKE) clean
@@ -67,7 +67,7 @@ bpt_dump_numbers: $(DUMP_OBJ)
 	$(QUIET_LINK)$(CXX) -o $(DUMPPRGNAME) $(CCOPT) $(DEBUG) $(DUMP_OBJ) $(CCLINK)
 
 %.o: %.cc
-	$(QUIET_CC)$(CXX) -c $(CFLAGS) $(TEST) $(DEBUG) $(COMPILE_TIME) $<
+	$(QUIET_CC)$(CXX) -o $@ -c $(CFLAGS) $(TEST) $(DEBUG) $(COMPILE_TIME) $<
 
 # Deps (use make dep to generate this)
 bpt.o: bpt.cc bpt.h predefined.h
