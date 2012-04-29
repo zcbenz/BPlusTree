@@ -1,4 +1,4 @@
-#include "bpt.h"
+#include "../bpt.h"
 using namespace bpt;
 
 #include <string.h>

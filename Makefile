@@ -3,7 +3,7 @@
 # This file is released under the BSD license, see the COPYING file
 
 OPTIMIZATION?=
-CFLAGS?=-std=c++0x $(OPTIMIZATION) -Wall $(PROF) -I.
+CFLAGS?=-std=c++0x $(OPTIMIZATION) -Wall $(PROF)
 CCLINK?=
 DEBUG?=-g -ggdb
 CCOPT= $(CFLAGS) $(ARCH) $(PROF)

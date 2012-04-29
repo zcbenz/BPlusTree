@@ -6,7 +6,7 @@
 namespace bpt {
 
 /* predefined B+ info */
-#define BP_ORDER 20
+#define BP_ORDER 4
 
 /* key/value type */
 typedef int value_t;
