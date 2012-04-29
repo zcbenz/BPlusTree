@@ -24,6 +24,7 @@ typedef struct {
     size_t height;            /* height of tree (exclude leafs) */
     off_t slot;        /* where to store new block */
     off_t root_offset; /* where is the root of internal nodes */
+    off_t leaf_offset; /* where is the first leaf */
 } meta_t;
 
 /* internal nodes' index segment */
@@ -61,6 +62,8 @@ public:
 
     /* abstract operations */
     int search(const key_t& key, value_t *value) const;
+    int search_range(const key_t &left, const key_t &right,
+                     value_t *values, size_t max, key_t *last = NULL) const;
     int erase(const key_t& key);
     int insert(const key_t& key, value_t value);
     int update(const key_t& key, value_t value);
@@ -131,7 +134,6 @@ public:
 
     off_t alloc(leaf_node_t *leaf)
     {
-        leaf->next = 0;
         leaf->n = 0;
         meta.leaf_node_num += 1;
         return dalloc(leaf);

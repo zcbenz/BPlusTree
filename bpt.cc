@@ -49,6 +49,52 @@ int bplus_tree::search(const key_t& key, value_t *value) const
     }
 }
 
+int bplus_tree::search_range(const key_t &left, const key_t &right,
+                             value_t *values, size_t max, key_t *last) const
+{
+    if (keycmp(left, right) > 0)
+        return -1;
+
+    off_t off_left = search_leaf(left);
+    off_t off_right = search_leaf(right);
+    off_t off = off_left;
+    size_t i = 0;
+    record_t *b, *e;
+
+    leaf_node_t leaf;
+    while (off != off_right && off != 0 && i < max) {
+        map(&leaf, off);
+
+        // start point
+        if (off_left == off) 
+            b = lower_bound(leaf.children, leaf.children + leaf.n, left);
+        else
+            b = leaf.children;
+
+        // copy
+        e = leaf.children + leaf.n;
+        for (; b != e && i < max; ++b, ++i)
+            values[i] = b->value;
+
+        off = leaf.next;
+    }
+
+    // the last leaf
+    if (i < max) {
+        map(&leaf, off_right);
+
+        b = lower_bound(leaf.children, leaf.children + leaf.n, left);
+        e = upper_bound(leaf.children, leaf.children + leaf.n, right);
+        for (; b != e && i < max; ++b, ++i)
+            values[i] = b->value;
+    }
+
+    if (last != NULL && i == max && b != e)
+        *last = b->key;
+
+    return i;
+}
+
 int bplus_tree::insert(const key_t& key, value_t value)
 {
     off_t parent = search_index(key);
@@ -65,6 +111,7 @@ int bplus_tree::insert(const key_t& key, value_t value)
 
         // new sibling leaf
         leaf_node_t new_leaf;
+        new_leaf.next = leaf.next;
         leaf.next = alloc(&new_leaf);
 
         // find even split point
@@ -85,14 +132,14 @@ int bplus_tree::insert(const key_t& key, value_t value)
         else
             insert_leaf_no_split(&leaf, key, value);
 
-        // insert new index key
-        insert_key_to_index(parent, new_leaf.children[0].key,
-                            offset, leaf.next, true);
-
         // save leafs
         unmap(&meta, OFFSET_META);
         unmap(&leaf, offset);
         unmap(&new_leaf, leaf.next);
+
+        // insert new index key
+        insert_key_to_index(parent, new_leaf.children[0].key,
+                            offset, leaf.next, true);
     } else {
         insert_leaf_no_split(&leaf, key, value);
         unmap(&leaf, offset);
@@ -289,7 +336,8 @@ void bplus_tree::init_from_empty()
 
     // init empty leaf
     leaf_node_t leaf;
-    root.children[0].child = alloc(&leaf);
+    leaf.next = 0;
+    meta.leaf_offset = root.children[0].child = alloc(&leaf);
 
     // save
     unmap(&meta, OFFSET_META);

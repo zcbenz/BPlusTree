@@ -17,11 +17,18 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        value_t value;
-        if (database.search(argv[3], &value) != 0)
-            printf("Key %s not found\n", argv[3]);
-        else
-            printf("%d\n", value);
+        if (argc == 4) {
+            value_t value;
+            if (database.search(argv[3], &value) != 0)
+                printf("Key %s not found\n", argv[3]);
+            else
+                printf("%d\n", value);
+        } else {
+            value_t values[512];
+            int ret = database.search_range(argv[3], argv[4], values, 512);
+            for (int i = 0; i < ret; i++)
+                printf("%d\n", values[i]);
+        }
     } else if (!strcmp(argv[2], "insert")) {
         if (argc < 5) {
             fprintf(stderr, "Format is [insert key value]\n");
@@ -38,6 +45,9 @@ int main(int argc, char *argv[])
 
         if (database.update(argv[3], atoi(argv[4])) != 0)
             printf("Key %s does not exists.\n", argv[3]);
+    } else {
+        fprintf(stderr, "Invalid command: %s\n", argv[2]);
+        return 1;
     }
     
     return 0;

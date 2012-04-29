@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <algorithm>
 
@@ -546,7 +547,50 @@ int main(int argc, char *argv[])
 
     PRINT("InsertManyKeysRandom");
 
-    for (int i = 0; i < 10; i++) {
+    {
+    for (int i = 0; i < size; i++)
+        numbers[i] = i;
+
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < size; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%04d", numbers[i]);
+        assert(tree.insert(key, numbers[i]) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    int start = rand() % (size - 20);
+    int end = rand() % (size - start) + start;
+    char key1[8] = { 0 };
+    char key2[8] = { 0 };
+    sprintf(key1, "%04d", start);
+    sprintf(key2, "%04d", end);
+    bpt::value_t values[end - start + 1];
+    assert(tree.search_range(key1, key2, values, end - start + 1) == end - start + 1);
+
+    for (int i = start; i <= end; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%04d", i);
+        assert(i == values[i - start]);
+    }
+
+    assert(tree.search_range(key1, key2, values, end - start + 100) == end - start + 1);
+
+    PRINT("SearchRangeSuccess");
+
+    assert(tree.search_range(key1, key1, values, end - start + 1) == 1);
+    assert(tree.search_range(key2, key2, values, end - start + 1) == 1);
+    PRINT("SearchRangeSameKey");
+
+    assert(tree.search_range(key1, key2, values, end - start) == end - start);
+    assert(tree.search_range(key2, key1, values, end - start + 1) == -1);
+
+    PRINT("SearchRangeFailed");
+    }
+
+    for (int i = 0; i < 2; i++) {
         std::random_shuffle(numbers, numbers + size);
         {
         bplus_tree tree("test.db", true);
@@ -588,6 +632,22 @@ int main(int argc, char *argv[])
     }
 
     PRINT("UpdateManyKeysRandom");
+
+    {
+    bplus_tree tree("test.db");
+    bpt::leaf_node_t leaf;
+    off_t offset = tree.meta.leaf_offset;
+    size_t counter = 0;
+    while (offset != 0) {
+        tree.map(&leaf, offset);
+        ++counter;
+        offset = leaf.next;
+    }
+    assert(counter == tree.meta.leaf_node_num);
+
+    PRINT("LeafsList");
+    }
+
 
     unlink("test.db");
 
