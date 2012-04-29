@@ -128,11 +128,10 @@ public:
     }
 
     /* alloc from disk */
-    template<class T>
-    off_t dalloc(T *leaf)
+    off_t alloc(size_t size)
     {
         off_t slot = meta.slot;
-        meta.slot += sizeof(leaf_node_t);
+        meta.slot += size;
         return slot;
     }
 
@@ -140,7 +139,7 @@ public:
     {
         leaf->n = 0;
         meta.leaf_node_num += 1;
-        return dalloc(leaf);
+        return alloc(sizeof(leaf_node_t));
     }
 
     off_t alloc(internal_node_t *node)
@@ -148,11 +147,16 @@ public:
         node->parent = 0;
         node->n = 0;
         meta.internal_node_num += 1;
-        return dalloc(node);
+        return alloc(sizeof(internal_node_t));
     }
 
-    off_t unalloc(leaf_node_t *leaf);
-    off_t unalloc(internal_node_t *node);
+    void unalloc(leaf_node_t *leaf)
+    {
+    }
+
+    void unalloc(internal_node_t *node)
+    {
+    }
 
     /* read block from disk */
     template<class T>
