@@ -52,7 +52,7 @@ Examples
 Create a database and insert numbers from `0` to `100000` as both keys
 and values:
 
-    ./bpt_dump_numbers test.db -100000 100000
+    ./bpt_dump_numbers test.db 0 100000
 
 Insert `a` as key and `1` as value:
 
