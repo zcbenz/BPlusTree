@@ -23,30 +23,33 @@ And do the unit test:
 
     make test
 
-If you use ide or work on Windows, just drag all files into a project and
+If you use IDE or work on Windows, just drag all files into a project and
 click the compile button.
 
 Files
 -----
 
 `bpt.h` and `bpt.cc` is the implementation of B+ tree. `predefined.h` 
-defines the tree order, key/value type, key compare function and OTHER
-compile things, modify it to satify your need. Just include these tree files 
+defines the tree order, key/value type, key compare function and other
+tree settings, modify it to satify your need. Just include these tree files 
 in your project to use the B+ tree.
 
-There are some demonstration tools under `util` folder. 
+There are some demonstration tools under `util` folder:
 
 `unit_test.cc` and `unit_test_predefined.h` is the unit test code.
 
 `dump_numbers.cc` can write some numbers into a database, so you can quickly
 test out the B+ tree.
 
-`cli.cc` is a command tool to manipulate exisiting database.
+`cli.cc` is a command tool to manipulate an exisiting database.
+
+By default, the key type is 16 byte string and value type is int. the
+`keycmp` function is written to easily compare number strings.
 
 Examples
 --------
 
-Create a database and insert numbers from `-100000` to `100000` as both keys
+Create a database and insert numbers from `0` to `100000` as both keys
 and values:
 
     ./bpt_dump_numbers test.db -100000 100000

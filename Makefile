@@ -20,6 +20,8 @@ QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CXX$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLO
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR);
 endif
 
+TESTPRGNAME = bpt_unit_test
+
 OBJ = bpt.o util/cli.o
 PRGNAME = bpt_cli
 
