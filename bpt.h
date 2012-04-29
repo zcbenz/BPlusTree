@@ -103,14 +103,11 @@ public:
     /* multi-level file open/close */
     mutable FILE *fp;
     mutable int fp_level;
-    void open_file() const
+    void open_file(const char *mode = "rb+") const
     {
         // `rb+` will make sure we can write everywhere without truncating file
-        if (fp_level == 0) {
-            fp = fopen(path, "rb+");
-            if (!fp) // new file
-                fp = fopen(path, "wb+");
-        }
+        if (fp_level == 0)
+            fp = fopen(path, mode);
 
         ++fp_level;
     }
@@ -153,22 +150,26 @@ public:
 
     /* read block from disk */
     template<class T>
-    void map(T *block, off_t offset) const
+    int map(T *block, off_t offset) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
-        fread(block, sizeof(T), 1, fp);
+        size_t rd = fread(block, sizeof(T), 1, fp);
         close_file();
+
+        return rd - 1;
     }
 
     /* write block to disk */
     template<class T>
-    void unmap(T *block, off_t offset) const
+    int unmap(T *block, off_t offset) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
-        fwrite(block, sizeof(T), 1, fp);
+        size_t wd = fwrite(block, sizeof(T), 1, fp);
         close_file();
+
+        return wd - 1;
     }
 };
 

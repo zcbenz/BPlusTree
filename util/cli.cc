@@ -22,6 +22,19 @@ int main(int argc, char *argv[])
             printf("Key %s not found\n", argv[3]);
         else
             printf("%d\n", value);
+    } else if (!strcmp(argv[2], "insert")) {
+        if (argc < 5) {
+            fprintf(stderr, "Format is [insert key value]\n");
+            return 1;
+        }
+
+        if (database.insert(argv[3], atoi(argv[4])) != 0)
+            printf("Key %s already exists\n", argv[3]);
+    } else if (!strcmp(argv[2], "update")) {
+        if (argc < 5) {
+            fprintf(stderr, "Format is [update key value]\n");
+            return 1;
+        }
     }
     
     return 0;

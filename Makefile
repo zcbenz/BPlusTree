@@ -29,6 +29,7 @@ DUMPPRGNAME = bpt_dump_numbers
 all: $(DUMPPRGNAME) $(PRGNAME)
 
 test:
+	@test "! -e bpt_unit_test" || rm bpt_unit_test
 	$(MAKE) TEST="-DUNIT_TEST" bpt_unit_test
 	./bpt_unit_test
 

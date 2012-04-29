@@ -18,12 +18,18 @@ bplus_tree::bplus_tree(const char *p, bool force_empty)
     bzero(path, sizeof(path));
     strcpy(path, p);
 
-    if (force_empty)
+    if (!force_empty)
+        // read tree from file
+        if (map(&meta, OFFSET_META) != 0)
+            force_empty = true;
+
+    if (force_empty) {
+        open_file("w+"); // truncate file
+
         // create empty tree if file doesn't exist
         init_from_empty();
-    else
-        // read tree from file
-        map(&meta, OFFSET_META);
+        close_file();
+    }
 }
 
 int bplus_tree::search(const key_t& key, value_t *value) const

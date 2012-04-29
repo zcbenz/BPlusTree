@@ -45,6 +45,7 @@ int main(int argc, char *argv[])
     assert(tree.meta.internal_node_num == 1);
     assert(tree.meta.leaf_node_num == 1);
     assert(tree.meta.height == 1);
+
     bpt::leaf_node_t leaf;
     tree.map(&leaf, tree.search_leaf("t1"));
     assert(leaf.n == 4);
