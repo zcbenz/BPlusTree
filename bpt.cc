@@ -101,6 +101,35 @@ int bplus_tree::search_range(key_t *left, const key_t &right,
     return i;
 }
 
+int bplus_tree::remove(const key_t& key)
+{
+    off_t offset = search_leaf(key);
+    leaf_node_t leaf;
+    map(&leaf, offset);
+
+    if (!binary_search(leaf.children, leaf.children + leaf.n, key))
+        return -1;
+
+    size_t min_n = meta.height == 1 ? 0 : meta.order / 2;
+    assert(leaf.n >= min_n && leaf.n <= meta.order);
+
+    if (leaf.n == min_n) {
+        // merge or borrow
+    } else {
+        // just delete key
+        remove_key_no_merge(&leaf, key);
+        unmap(&leaf, offset);
+    }
+
+    return 0;
+}
+
+void bplus_tree::remove_key_no_merge(leaf_node_t *leaf, const key_t &key)
+{
+    std::remove(leaf->children, leaf->children + leaf->n, key);
+    leaf->n--;
+}
+
 int bplus_tree::insert(const key_t& key, value_t value)
 {
     off_t parent = search_index(key);
@@ -118,7 +147,15 @@ int bplus_tree::insert(const key_t& key, value_t value)
         // new sibling leaf
         leaf_node_t new_leaf;
         new_leaf.next = leaf.next;
+        new_leaf.prev = offset;
         leaf.next = alloc(&new_leaf);
+        // update next leaf's prev
+        if (new_leaf.next != 0) {
+            leaf_node_t next_leaf;
+            map(&next_leaf, new_leaf.next);
+            next_leaf.prev = leaf.next;
+            unmap(&next_leaf, new_leaf.next);
+        }
 
         // find even split point
         size_t point = leaf.n / 2;
@@ -342,7 +379,7 @@ void bplus_tree::init_from_empty()
 
     // init empty leaf
     leaf_node_t leaf;
-    leaf.next = 0;
+    leaf.next = leaf.prev = 0;
     meta.leaf_offset = root.children[0].child = alloc(&leaf);
 
     // save

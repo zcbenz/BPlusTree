@@ -55,6 +55,7 @@ struct record_t {
 /* leaf node block */
 struct leaf_node_t {
     off_t next; /* next leaf */
+    off_t prev;
     size_t n;
     record_t children[BP_ORDER];
 };
@@ -68,7 +69,7 @@ public:
     int search(const key_t& key, value_t *value) const;
     int search_range(key_t *left, const key_t &right,
                      value_t *values, size_t max, bool *next = NULL) const;
-    int erase(const key_t& key);
+    int remove(const key_t& key);
     int insert(const key_t& key, value_t value);
     int update(const key_t& key, value_t value);
 
@@ -92,6 +93,8 @@ public:
     {
         return search_leaf(search_index(key), key);
     }
+
+    void remove_key_no_merge(leaf_node_t *leaf, const key_t &key);
 
     /* insert into leaf without split */
     void insert_leaf_no_split(leaf_node_t *leaf,

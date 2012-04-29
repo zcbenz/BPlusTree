@@ -647,10 +647,13 @@ int main(int argc, char *argv[])
     bplus_tree tree("test.db");
     bpt::leaf_node_t leaf;
     off_t offset = tree.meta.leaf_offset;
+    off_t last = 0;
     size_t counter = 0;
     while (offset != 0) {
         tree.map(&leaf, offset);
         ++counter;
+        assert(last == leaf.prev);
+        last = offset;
         offset = leaf.next;
     }
     assert(counter == tree.meta.leaf_node_num);
@@ -658,6 +661,42 @@ int main(int argc, char *argv[])
     PRINT("LeafsList");
     }
 
+    {
+    bplus_tree tree("test.db", true);
+    assert(tree.insert("t2", 2) == 0);
+    assert(tree.insert("t4", 4) == 0);
+    assert(tree.insert("t1", 1) == 0);
+    assert(tree.insert("t3", 3) == 0);
+    }
+
+    {
+    bplus_tree tree("test.db");
+    assert(tree.remove("t9") != 0);
+    assert(tree.remove("t3") == 0);
+    assert(tree.remove("t3") != 0);
+
+    bpt::leaf_node_t leaf;
+    tree.map(&leaf, tree.meta.leaf_offset);
+    assert(leaf.n == 3);
+    assert(bpt::keycmp(leaf.children[0].key, "t1") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "t2") == 0);
+    assert(bpt::keycmp(leaf.children[2].key, "t4") == 0);
+    assert(tree.remove("t1") == 0);
+    tree.map(&leaf, tree.meta.leaf_offset);
+    assert(leaf.n == 2);
+    assert(bpt::keycmp(leaf.children[0].key, "t2") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "t4") == 0);
+    assert(tree.remove("t2") == 0);
+    tree.map(&leaf, tree.meta.leaf_offset);
+    assert(leaf.n == 1);
+    assert(bpt::keycmp(leaf.children[0].key, "t4") == 0);
+    assert(tree.remove("t4") == 0);
+    tree.map(&leaf, tree.meta.leaf_offset);
+    assert(leaf.n == 0);
+    assert(tree.remove("t4") != 0);
+
+    PRINT("DeleteInRootLeaf");
+    }
 
     unlink("test.db");
 
