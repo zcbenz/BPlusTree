@@ -49,13 +49,13 @@ int bplus_tree::search(const key_t& key, value_t *value) const
     }
 }
 
-int bplus_tree::search_range(const key_t &left, const key_t &right,
-                             value_t *values, size_t max, key_t *last) const
+int bplus_tree::search_range(key_t *left, const key_t &right,
+                             value_t *values, size_t max, bool *next) const
 {
-    if (keycmp(left, right) > 0)
+    if (left == NULL || keycmp(*left, right) > 0)
         return -1;
 
-    off_t off_left = search_leaf(left);
+    off_t off_left = search_leaf(*left);
     off_t off_right = search_leaf(right);
     off_t off = off_left;
     size_t i = 0;
@@ -67,7 +67,7 @@ int bplus_tree::search_range(const key_t &left, const key_t &right,
 
         // start point
         if (off_left == off) 
-            b = lower_bound(leaf.children, leaf.children + leaf.n, left);
+            b = lower_bound(leaf.children, leaf.children + leaf.n, *left);
         else
             b = leaf.children;
 
@@ -83,14 +83,20 @@ int bplus_tree::search_range(const key_t &left, const key_t &right,
     if (i < max) {
         map(&leaf, off_right);
 
-        b = lower_bound(leaf.children, leaf.children + leaf.n, left);
+        b = lower_bound(leaf.children, leaf.children + leaf.n, *left);
         e = upper_bound(leaf.children, leaf.children + leaf.n, right);
         for (; b != e && i < max; ++b, ++i)
             values[i] = b->value;
     }
 
-    if (last != NULL && i == max && b != e)
-        *last = b->key;
+    if (next != NULL) {
+        if (i == max && b != e) {
+            *next = true;
+            *left = b->key;
+        } else {
+            *next = false;
+        }
+    }
 
     return i;
 }

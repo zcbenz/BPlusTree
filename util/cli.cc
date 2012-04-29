@@ -24,10 +24,15 @@ int main(int argc, char *argv[])
             else
                 printf("%d\n", value);
         } else {
+            bpt::key_t start(argv[3]);
             value_t values[512];
-            int ret = database.search_range(argv[3], argv[4], values, 512);
-            for (int i = 0; i < ret; i++)
-                printf("%d\n", values[i]);
+            bool next = true;
+            while (next) {
+                int ret = database.search_range(
+                        &start, argv[4], values, 512, &next);
+                for (int i = 0; i < ret; i++)
+                    printf("%d\n", values[i]);
+            }
         }
     } else if (!strcmp(argv[2], "insert")) {
         if (argc < 5) {

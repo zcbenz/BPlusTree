@@ -563,12 +563,13 @@ int main(int argc, char *argv[])
     bplus_tree tree("test.db");
     int start = rand() % (size - 20);
     int end = rand() % (size - start) + start;
-    char key1[8] = { 0 };
-    char key2[8] = { 0 };
-    sprintf(key1, "%04d", start);
-    sprintf(key2, "%04d", end);
+    char bufkey1[8] = { 0 };
+    char bufkey2[8] = { 0 };
+    sprintf(bufkey1, "%04d", start);
+    sprintf(bufkey2, "%04d", end);
+    bpt::key_t key1(bufkey1), key2(bufkey2);
     bpt::value_t values[end - start + 1];
-    assert(tree.search_range(key1, key2, values, end - start + 1) == end - start + 1);
+    assert(tree.search_range(&key1, key2, values, end - start + 1) == end - start + 1);
 
     for (int i = start; i <= end; i++) {
         char key[8] = { 0 };
@@ -576,16 +577,25 @@ int main(int argc, char *argv[])
         assert(i == values[i - start]);
     }
 
-    assert(tree.search_range(key1, key2, values, end - start + 100) == end - start + 1);
+    bool next;
+    assert(tree.search_range(&key1, key2, values, end - start + 100) == end - start + 1);
+    assert(tree.search_range(&key1, key2, values, end - start + 100, &next) == end - start + 1);
+    assert(next == false);
 
     PRINT("SearchRangeSuccess");
 
-    assert(tree.search_range(key1, key1, values, end - start + 1) == 1);
-    assert(tree.search_range(key2, key2, values, end - start + 1) == 1);
+    assert(tree.search_range(&key1, key1, values, end - start + 1) == 1);
+    assert(tree.search_range(&key1, key1, values, end - start + 1, &next) == 1);
+    assert(next == false);
+    assert(tree.search_range(&key2, key2, values, end - start + 1) == 1);
+    assert(tree.search_range(&key2, key2, values, end - start + 1, &next) == 1);
+    assert(next == false);
     PRINT("SearchRangeSameKey");
 
-    assert(tree.search_range(key1, key2, values, end - start) == end - start);
-    assert(tree.search_range(key2, key1, values, end - start + 1) == -1);
+    assert(tree.search_range(&key2, key1, values, end - start + 1) == -1);
+    assert(tree.search_range(&key1, key2, values, end - start) == end - start);
+    assert(tree.search_range(&key1, key2, values, end - start, &next) == end - start);
+    assert(next == true);
 
     PRINT("SearchRangeFailed");
     }

@@ -62,8 +62,8 @@ public:
 
     /* abstract operations */
     int search(const key_t& key, value_t *value) const;
-    int search_range(const key_t &left, const key_t &right,
-                     value_t *values, size_t max, key_t *last = NULL) const;
+    int search_range(key_t *left, const key_t &right,
+                     value_t *values, size_t max, bool *next = NULL) const;
     int erase(const key_t& key);
     int insert(const key_t& key, value_t value);
     int update(const key_t& key, value_t value);
