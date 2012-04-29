@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     bpt::bplus_tree database(argv[1]);
     if (!strcmp(argv[2], "search")) {
         if (argc < 4) {
-            fprintf(stderr, "Need key\n");
+            fprintf(stderr, "Need key.\n");
             return 1;
         }
 
@@ -35,6 +35,9 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Format is [update key value]\n");
             return 1;
         }
+
+        if (database.update(argv[3], atoi(argv[4])) != 0)
+            printf("Key %s does not exists.\n", argv[3]);
     }
     
     return 0;

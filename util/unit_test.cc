@@ -546,6 +546,49 @@ int main(int argc, char *argv[])
 
     PRINT("InsertManyKeysRandom");
 
+    for (int i = 0; i < 10; i++) {
+        std::random_shuffle(numbers, numbers + size);
+        {
+        bplus_tree tree("test.db", true);
+        for (int i = 0; i < size; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[i]);
+            assert(tree.insert(key, numbers[i]) == 0);
+        }
+        }
+
+        {
+        bplus_tree tree("test.db");
+        std::random_shuffle(numbers, numbers + size);
+        for (int i = 0; i < size; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[i]);
+            assert(tree.update(key, numbers[i] + 1) == 0);
+        }
+        }
+
+        {
+        bplus_tree tree("test.db");
+        for (int i = 0; i < size; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[i]);
+            bpt::value_t value;
+            assert(tree.search(key, &value) == 0);
+            assert(value == numbers[i] + 1);
+        }
+
+        for (int i = size; i < size * 2; i++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", i);
+            bpt::value_t value;
+            assert(tree.search(key, &value) != 0);
+            assert(tree.update(key, i) != 0);
+        }
+        }
+    }
+
+    PRINT("UpdateManyKeysRandom");
+
     unlink("test.db");
 
     return 0;

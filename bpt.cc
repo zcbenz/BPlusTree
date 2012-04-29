@@ -101,6 +101,26 @@ int bplus_tree::insert(const key_t& key, value_t value)
     return 0;
 }
 
+int bplus_tree::update(const key_t& key, value_t value)
+{
+    off_t offset = search_leaf(key);
+    leaf_node_t leaf;
+    map(&leaf, offset);
+
+    record_t *record = lower_bound(leaf.children, leaf.children + leaf.n, key);
+    if (record != leaf.children + leaf.n)
+        if (keycmp(key, record->key) == 0) {
+            record->value = value;
+            unmap(&leaf, offset);
+
+            return 0;
+        } else {
+            return 1;
+        }
+    else
+        return -1;
+}
+
 void bplus_tree::insert_leaf_no_split(leaf_node_t *leaf,
                                       const key_t &key, const value_t &value)
 {
