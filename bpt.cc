@@ -110,24 +110,36 @@ int bplus_tree::remove(const key_t& key)
     if (!binary_search(leaf.children, leaf.children + leaf.n, key))
         return -1;
 
-    size_t min_n = meta.height == 1 ? 0 : meta.order / 2;
+    size_t min_n = meta.leaf_node_num == 1 ? 0 : meta.order / 2;
     assert(leaf.n >= min_n && leaf.n <= meta.order);
 
     if (leaf.n == min_n) {
         // merge or borrow
+
+        // delete the key
+        remove_record_no_merge(&leaf, key);
+
+        // first borrow from left
+        bool borrowed = false;
+        if (leaf.prev != 0)
+            borrowed = borrow_record(false, &leaf);
+
+        // then borrow from right
+        if (!borrowed && leaf.next != 0)
+            borrowed = borrow_record(true, &leaf);
+
+        // TODO finally we merge
+        if (!borrowed) {
+        }
+
+        unmap(&leaf, offset);
     } else {
         // just delete key
-        remove_key_no_merge(&leaf, key);
+        remove_record_no_merge(&leaf, key);
         unmap(&leaf, offset);
     }
 
     return 0;
-}
-
-void bplus_tree::remove_key_no_merge(leaf_node_t *leaf, const key_t &key)
-{
-    std::remove(leaf->children, leaf->children + leaf->n, key);
-    leaf->n--;
 }
 
 int bplus_tree::insert(const key_t& key, value_t value)
@@ -167,13 +179,14 @@ int bplus_tree::insert(const key_t& key, value_t value)
         std::copy(leaf.children + point, leaf.children + leaf.n,
                   new_leaf.children);
         new_leaf.n = leaf.n - point;
+        new_leaf.parent = leaf.parent;
         leaf.n = point;
 
         // which part do we put the key
         if (place_right)
-            insert_leaf_no_split(&new_leaf, key, value);
+            insert_record_no_split(&new_leaf, key, value);
         else
-            insert_leaf_no_split(&leaf, key, value);
+            insert_record_no_split(&leaf, key, value);
 
         // save leafs
         unmap(&meta, OFFSET_META);
@@ -182,9 +195,9 @@ int bplus_tree::insert(const key_t& key, value_t value)
 
         // insert new index key
         insert_key_to_index(parent, new_leaf.children[0].key,
-                            offset, leaf.next, true);
+                            offset, leaf.next);
     } else {
-        insert_leaf_no_split(&leaf, key, value);
+        insert_record_no_split(&leaf, key, value);
         unmap(&leaf, offset);
     }
 
@@ -211,23 +224,87 @@ int bplus_tree::update(const key_t& key, value_t value)
         return -1;
 }
 
-void bplus_tree::insert_leaf_no_split(leaf_node_t *leaf,
-                                      const key_t &key, const value_t &value)
+bool bplus_tree::borrow_record(bool from_right, leaf_node_t *borrower)
 {
-    // insert into array when leaf is not full
-    record_t *r = upper_bound(leaf->children, leaf->children + leaf->n, key);
+    off_t lender_off = from_right ? borrower->next : borrower->prev;
+    leaf_node_t lender;
+    map(&lender, lender_off);
 
+    assert(lender.n >= meta.order / 2);
+    if (lender.n != meta.order / 2) {
+        record_t *where_to_lend, *where_to_put;
+
+        // decide offset and update parent's index key
+        if (from_right) {
+            where_to_lend = lender.children;
+            where_to_put = borrower->children + borrower->n;
+            change_parent_child(borrower->parent, borrower->children[0].key,
+                                lender.children[1].key);
+        } else {
+            where_to_lend = lender.children + lender.n - 1;
+            where_to_put = borrower->children;
+            change_parent_child(lender.parent, lender.children[0].key,
+                                where_to_lend->key);
+        }
+
+        insert_record_no_split(borrower, where_to_put,
+                               where_to_lend->key, where_to_lend->value);
+        remove_record_no_merge(&lender, where_to_lend);
+        unmap(&lender, lender_off);
+        return true;
+    }
+
+    return false;
+}
+
+void bplus_tree::change_parent_child(off_t parent, const key_t &o,
+                                     const key_t &n)
+{
+    internal_node_t node;
+    map(&node, parent);
+
+    index_t *w = upper_bound(node.children, node.children + node.n, o);
+    if (w != node.children + node.n) {
+        w->key = n;
+        unmap(&node, parent);
+    }
+}
+
+void bplus_tree::remove_record_no_merge(leaf_node_t *leaf, const key_t &key)
+{
+    remove_record_no_merge(
+            leaf, lower_bound(leaf->children, leaf->children + leaf->n, key));
+}
+
+void bplus_tree::remove_record_no_merge(leaf_node_t *leaf, record_t *to_delete)
+{
+    for (; to_delete != leaf->children + leaf->n - 1; ++to_delete)
+        *to_delete = *(to_delete + 1);
+    leaf->n--;
+}
+
+void bplus_tree::insert_record_no_split(leaf_node_t *leaf,
+                                        const key_t &key, const value_t &value)
+{
+    insert_record_no_split(leaf,
+            upper_bound(leaf->children, leaf->children + leaf->n, key),
+            key, value);
+}
+
+void bplus_tree::insert_record_no_split(leaf_node_t *leaf, record_t *where,
+                                        const key_t &key, const value_t &value)
+{
     // move forward 1 element
-    for (record_t *c = leaf->children + leaf->n; c > r; --c)
+    for (record_t *c = leaf->children + leaf->n; c > where; --c)
         *c = *(c - 1);
 
-    r->key = key;
-    r->value = value;
+    where->key = key;
+    where->value = value;
     leaf->n++;
 }
 
 void bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
-                                     off_t old, off_t after, bool is_leaf)
+                                     off_t old, off_t after)
 {
     if (offset == 0) {
         // create new root node
@@ -245,10 +322,9 @@ void bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
         unmap(&root, meta.root_offset);
 
         // update children's parent
-        if (!is_leaf)
-            reset_index_children_parent(root.children,
-                                        root.children + root.n + 1,
-                                        meta.root_offset);
+        reset_index_children_parent(root.children,
+                                    root.children + root.n + 1,
+                                    meta.root_offset);
         return;
     }
 
@@ -294,14 +370,13 @@ void bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
         unmap(&new_node, new_offset);
 
         // update children's parent
-        if (!is_leaf)
-            reset_index_children_parent(new_node.children,
-                                        new_node.children + new_node.n + 1,
-                                        new_offset);
+        reset_index_children_parent(new_node.children,
+                                    new_node.children + new_node.n + 1,
+                                    new_offset);
 
         // give the middle key to the parent
         // note: middle key's child is reserved in children[node.n]
-        insert_key_to_index(node.parent, middle_key, offset, new_offset, false);
+        insert_key_to_index(node.parent, middle_key, offset, new_offset);
     } else {
         insert_key_to_index_no_split(&node, key, after);
         unmap(&node, offset);
@@ -329,11 +404,15 @@ void bplus_tree::insert_key_to_index_no_split(internal_node_t *node,
 void bplus_tree::reset_index_children_parent(index_t *begin, index_t *end,
                                              off_t parent)
 {
+    // this function can change both internal_node_t and leaf_node_t's parent
+    // field, but we should ensure that:
+    // 1. sizeof(internal_node_t) <= sizeof(leaf_node_t)
+    // 2. parent field is placed in the beginning and have same size
     internal_node_t node;
     while (begin != end) {
         map(&node, begin->child);
         node.parent = parent;
-        unmap(&node, begin->child);
+        unmap(&node, begin->child, sizeof(node.parent));
         ++begin;
     }
 }
@@ -380,6 +459,7 @@ void bplus_tree::init_from_empty()
     // init empty leaf
     leaf_node_t leaf;
     leaf.next = leaf.prev = 0;
+    leaf.parent = meta.root_offset;
     meta.leaf_offset = root.children[0].child = alloc(&leaf);
 
     // save

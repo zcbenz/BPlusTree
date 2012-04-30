@@ -54,6 +54,7 @@ struct record_t {
 
 /* leaf node block */
 struct leaf_node_t {
+    off_t parent; /* parent node offset */
     off_t next; /* next leaf */
     off_t prev;
     size_t n;
@@ -94,15 +95,25 @@ public:
         return search_leaf(search_index(key), key);
     }
 
-    void remove_key_no_merge(leaf_node_t *leaf, const key_t &key);
+    /* borrow one record from other leaf */
+    bool borrow_record(bool from_right, leaf_node_t *borrower);
+
+    /* change one's parent key to another key */
+    void change_parent_child(off_t parent, const key_t &o, const key_t &n);
+
+    /* remove one key from leaf */
+    void remove_record_no_merge(leaf_node_t *leaf, const key_t &key);
+    void remove_record_no_merge(leaf_node_t *leaf, record_t *to_delete);
 
     /* insert into leaf without split */
-    void insert_leaf_no_split(leaf_node_t *leaf,
-                              const key_t &key, const value_t &value);
+    void insert_record_no_split(leaf_node_t *leaf,
+                                const key_t &key, const value_t &value);
+    void insert_record_no_split(leaf_node_t *leaf, record_t *where,
+                                const key_t &key, const value_t &value);
 
     /* add key to the internal node */
     void insert_key_to_index(off_t offset, const key_t &key,
-                             off_t value, off_t after, bool is_leaf);
+                             off_t value, off_t after);
     void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
                                       off_t value);
 
@@ -174,15 +185,20 @@ public:
     }
 
     /* write block to disk */
-    template<class T>
-    int unmap(T *block, off_t offset) const
+    int unmap(void *block, off_t offset, size_t size) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
-        size_t wd = fwrite(block, sizeof(T), 1, fp);
+        size_t wd = fwrite(block, size, 1, fp);
         close_file();
 
         return wd - 1;
+    }
+
+    template<class T>
+    int unmap(T *block, off_t offset) const
+    {
+        return unmap(block, offset, sizeof(T));
     }
 };
 

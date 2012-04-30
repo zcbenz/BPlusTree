@@ -695,7 +695,66 @@ int main(int argc, char *argv[])
     assert(leaf.n == 0);
     assert(tree.remove("t4") != 0);
 
-    PRINT("DeleteInRootLeaf");
+    PRINT("RemoveInRootLeaf");
+    }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 10; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%02d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+    {
+    bplus_tree tree("test.db");
+    bpt::leaf_node_t leaf;
+    bpt::internal_node_t node;
+    assert(tree.meta.leaf_node_num == 3);
+    assert(tree.meta.internal_node_num == 1);
+
+    // | 3 6  |
+    // | 0 1 2 | 3 4 5 | 6 7 8 9 |
+    tree.map(&node, tree.meta.root_offset);
+    assert(bpt::keycmp(node.children[0].key, "03") == 0);
+    assert(bpt::keycmp(node.children[1].key, "06") == 0);
+    assert(tree.remove("03") == 0);
+    assert(tree.remove("04") == 0);
+    // | 2 6  |
+    // | 0 1 | 2 5 | 6 7 8 9 |
+    tree.map(&node, tree.meta.root_offset);
+    assert(bpt::keycmp(node.children[0].key, "02") == 0);
+    assert(bpt::keycmp(node.children[1].key, "06") == 0);
+    tree.map(&leaf, tree.search_leaf("00"));
+    assert(leaf.parent == tree.meta.root_offset);
+    assert(leaf.n == 2);
+    assert(bpt::keycmp(leaf.children[0].key, "00") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "01") == 0);
+    tree.map(&leaf, tree.search_leaf("05"));
+    assert(leaf.parent == tree.meta.root_offset);
+    assert(leaf.n == 2);
+    assert(bpt::keycmp(leaf.children[0].key, "02") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "05") == 0);
+    assert(tree.remove("05") == 0);
+    // | 2 7  |
+    // | 0 1 | 2 6 | 7 8 9 |
+    tree.map(&node, tree.meta.root_offset);
+    assert(bpt::keycmp(node.children[0].key, "02") == 0);
+    assert(bpt::keycmp(node.children[1].key, "07") == 0);
+    tree.map(&leaf, tree.search_leaf("04"));
+    assert(leaf.parent == tree.meta.root_offset);
+    assert(leaf.n == 2);
+    assert(bpt::keycmp(leaf.children[0].key, "02") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "06") == 0);
+    tree.map(&leaf, tree.search_leaf("07"));
+    assert(leaf.parent == tree.meta.root_offset);
+    assert(leaf.n == 3);
+    assert(bpt::keycmp(leaf.children[0].key, "07") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "08") == 0);
+    assert(bpt::keycmp(leaf.children[2].key, "09") == 0);
+
+    PRINT("RemoveWithBorrow");
     }
 
     unlink("test.db");
