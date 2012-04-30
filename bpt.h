@@ -17,6 +17,7 @@ namespace bpt {
 /* offsets */
 #define OFFSET_META 0
 #define OFFSET_BLOCK OFFSET_META + sizeof(meta_t)
+#define SIZE_NO_CHILDREN sizeof(leaf_node_t) - BP_ORDER * sizeof(record_t)
 
 /* meta information of B+ tree */
 typedef struct {
@@ -42,6 +43,8 @@ struct index_t {
  ***/
 struct internal_node_t {
     off_t parent; /* parent node offset */
+    off_t next;
+    off_t prev;
     size_t n; /* how many children */
     index_t children[BP_ORDER];
 };
@@ -55,7 +58,7 @@ struct record_t {
 /* leaf node block */
 struct leaf_node_t {
     off_t parent; /* parent node offset */
-    off_t next; /* next leaf */
+    off_t next;
     off_t prev;
     size_t n;
     record_t children[BP_ORDER];
@@ -121,6 +124,9 @@ public:
     void reset_index_children_parent(index_t *begin, index_t *end,
                                      off_t parent);
 
+    template<class T>
+    void cat_node(off_t offset, T *node, T *next);
+
     /* multi-level file open/close */
     mutable FILE *fp;
     mutable int fp_level;
@@ -158,7 +164,6 @@ public:
 
     off_t alloc(internal_node_t *node)
     {
-        node->parent = 0;
         node->n = 0;
         meta.internal_node_num += 1;
         return alloc(sizeof(internal_node_t));
@@ -166,10 +171,12 @@ public:
 
     void unalloc(leaf_node_t *leaf)
     {
+        --meta.leaf_node_num;
     }
 
     void unalloc(internal_node_t *node)
     {
+        --meta.internal_node_num;
     }
 
     /* read block from disk */
