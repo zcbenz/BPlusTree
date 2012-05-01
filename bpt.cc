@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <algorithm>
+using std::swap;
 using std::binary_search;
 using std::lower_bound;
 using std::upper_bound;
@@ -147,17 +148,16 @@ int bplus_tree::remove(const key_t& key)
     std::copy(to_delete + 1, end(leaf), to_delete);
     leaf.n--;
 
+    // merge or borrow
     if (leaf.n < min_n) {
-        // merge or borrow
-
         // first borrow from left
         bool borrowed = false;
         if (leaf.prev != 0)
-            borrowed = borrow_record(false, &leaf);
+            borrowed = borrow_key(false, leaf);
 
         // then borrow from right
         if (!borrowed && leaf.next != 0)
-            borrowed = borrow_record(true, &leaf);
+            borrowed = borrow_key(true, leaf);
 
         // finally we merge
         if (!borrowed) {
@@ -284,40 +284,113 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
     }
     node.n--;
 
+    // remove to only one key
+    if (node.n == 1 && meta.root_offset == offset &&
+                       meta.internal_node_num != 1)
+    {
+        unalloc(&node, meta.root_offset);
+        meta.height--;
+        meta.root_offset = node.children[0].child;
+        unmap(&meta, OFFSET_META);
+        return;
+    }
+
     // merge or borrow
     if (node.n < min_n) {
+        // first borrow from left
+        bool borrowed = false;
+        if (node.prev != 0)
+            borrowed = borrow_key(false, node);
+
+        // then borrow from right
+        if (!borrowed && node.next != 0)
+            borrowed = borrow_key(true, node);
+
+        // finally we merge
+        if (!borrowed) {
+        }
     }
 
     unmap(&node, offset);
 }
 
-bool bplus_tree::borrow_record(bool from_right, leaf_node_t *borrower)
+bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower)
 {
-    off_t lender_off = from_right ? borrower->next : borrower->prev;
+    typedef typename internal_node_t::child_t child_t;
+
+    off_t lender_off = from_right ? borrower.next : borrower.prev;
+    internal_node_t lender;
+    map(&lender, lender_off);
+
+    assert(lender.n >= meta.order / 2);
+    if (lender.n != meta.order / 2) {
+        child_t where_to_lend, where_to_put;
+
+        internal_node_t parent;
+
+        // swap keys, draw on paper to see why
+        if (from_right) {
+            where_to_lend = begin(lender);
+            where_to_put = end(borrower);
+
+            map(&parent, borrower.parent);
+            child_t where = find(parent, begin(borrower)->key);
+            (where_to_put - 1)->key = where->key;
+            where->key = where_to_lend->key;
+            unmap(&parent, borrower.parent);
+        } else {
+            where_to_lend = end(lender) - 1;
+            where_to_put = begin(borrower);
+
+            map(&parent, lender.parent);
+            child_t where = find(parent, begin(lender)->key);
+            where_to_put->key = where->key;
+            where->key = (where_to_lend - 1)->key;
+            unmap(&parent, lender.parent);
+        }
+
+        // store
+        std::copy(where_to_put, end(borrower), end(borrower) + 1);
+        *where_to_put = *where_to_lend;
+        borrower.n++;
+
+        // erase
+        std::copy(where_to_lend + 1, end(lender), where_to_lend);
+        lender.n--;
+        unmap(&lender, lender_off);
+        return true;
+    }
+
+    return false;
+}
+
+bool bplus_tree::borrow_key(bool from_right, leaf_node_t &borrower)
+{
+    off_t lender_off = from_right ? borrower.next : borrower.prev;
     leaf_node_t lender;
     map(&lender, lender_off);
 
     assert(lender.n >= meta.order / 2);
     if (lender.n != meta.order / 2) {
-        record_t *where_to_lend, *where_to_put;
+        typename leaf_node_t::child_t where_to_lend, where_to_put;
 
         // decide offset and update parent's index key
         if (from_right) {
             where_to_lend = begin(lender);
-            where_to_put = end(*borrower);
-            change_parent_child(borrower->parent, borrower->children[0].key,
+            where_to_put = end(borrower);
+            change_parent_child(borrower.parent, begin(borrower)->key,
                                 lender.children[1].key);
         } else {
             where_to_lend = end(lender) - 1;
-            where_to_put = begin(*borrower);
-            change_parent_child(lender.parent, lender.children[0].key,
+            where_to_put = begin(borrower);
+            change_parent_child(lender.parent, begin(lender)->key,
                                 where_to_lend->key);
         }
 
         // store
-        std::copy(where_to_put, end(*borrower), end(*borrower) + 1);
+        std::copy(where_to_put, end(borrower), end(borrower) + 1);
         *where_to_put = *where_to_lend;
-        borrower->n++;
+        borrower.n++;
 
         // erase
         std::copy(where_to_lend + 1, end(lender), where_to_lend);
@@ -380,8 +453,7 @@ void bplus_tree::insert_key_to_index(off_t offset, const key_t &key,
         unmap(&root, meta.root_offset);
 
         // update children's parent
-        reset_index_children_parent(root.children,
-                                    root.children + root.n + 1,
+        reset_index_children_parent(begin(root), end(root),
                                     meta.root_offset);
         return;
     }
@@ -462,7 +534,7 @@ void bplus_tree::reset_index_children_parent(index_t *begin, index_t *end,
     while (begin != end) {
         map(&node, begin->child);
         node.parent = parent;
-        unmap(&node, begin->child, sizeof(node.parent));
+        unmap(&node, begin->child, SIZE_NO_CHILDREN);
         ++begin;
     }
 }

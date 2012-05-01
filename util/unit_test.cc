@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
     assert(tree.insert("t1", 4) == 1);
     assert(tree.insert("t2", 4) == 1);
     assert(tree.insert("t3", 4) == 1);
@@ -137,6 +138,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
     assert(tree.meta.internal_node_num == 1);
     assert(tree.meta.leaf_node_num == 3);
     assert(tree.meta.height == 1);
@@ -167,6 +169,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db", true);
+    assert(tree.meta.order == 4);
     assert(tree.insert("t00", 0) == 0);
     assert(tree.insert("t01", 1) == 0);
     assert(tree.insert("t02", 2) == 0);
@@ -186,6 +189,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
     assert(tree.meta.internal_node_num == 3);
     assert(tree.meta.leaf_node_num == 5);
     assert(tree.meta.height == 2);
@@ -225,6 +229,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db", true);
+    assert(tree.meta.order == 4);
     for (int i = 0; i < 12; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", i);
@@ -234,6 +239,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
     assert(tree.meta.internal_node_num == 1);
     assert(tree.meta.leaf_node_num == 4);
     assert(tree.meta.height == 1);
@@ -337,6 +343,7 @@ int main(int argc, char *argv[])
 
     {
     bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
     assert(tree.meta.internal_node_num == 3);
     assert(tree.meta.leaf_node_num == 5);
     assert(tree.meta.height == 2);
@@ -845,6 +852,118 @@ int main(int argc, char *argv[])
     assert(bpt::keycmp(leaf.children[2].key, "07") == 0);
 
     PRINT("RemoveWithMerge");
+    }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 15; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+    {
+    // | 3  |
+    // | 11 14  | 6  |
+    // | 0 1 10 | 11 12 13 | 14 2 | 3 4 5 | 6 7 8 9 |
+    bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
+    assert(tree.meta.internal_node_num == 3);
+    assert(tree.meta.leaf_node_num == 5);
+    assert(tree.meta.height == 2);
+    assert(tree.remove("6") == 0);
+    assert(tree.remove("7") == 0);
+    assert(tree.remove("8") == 0);
+    assert(tree.remove("9") == 0);
+    // | 14  |
+    // | 11  | 3  |
+    // | 0 1 10 | 11 12 13 | 14 2 | 3 4 5 |
+    assert(tree.meta.internal_node_num == 3);
+    assert(tree.meta.leaf_node_num == 4);
+    assert(tree.meta.height == 2);
+
+    bpt::internal_node_t node1, node2, root;
+    tree.map(&root, tree.meta.root_offset);
+    off_t node1_off = tree.search_index("0");
+    off_t node2_off = tree.search_index("6");
+    tree.map(&node1, node1_off);
+    tree.map(&node2, node2_off);
+    assert(root.n == 2);
+    assert(bpt::keycmp(root.children[0].key, "14") == 0);
+    assert(root.children[0].child == node1_off);
+    assert(root.children[1].child == node2_off);
+    assert(node1.n == 2);
+    assert(bpt::keycmp(node1.children[0].key, "11") == 0);
+    assert(node2.n == 2);
+    assert(bpt::keycmp(node2.children[0].key, "3") == 0);
+    for (int i = 0; i < 6; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == i);
+    }
+    for (int i = 6; i < 10; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) != 0);
+    }
+    for (int i = 10; i < 15; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        bpt::value_t value;
+        assert(tree.search(key, &value) == 0);
+        assert(value == i);
+    }
+
+    PRINT("RemoveWithBorrowInParentLeft");
+    }
+
+    {
+    bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
+    assert(tree.meta.internal_node_num == 3);
+    assert(tree.meta.leaf_node_num == 4);
+    assert(tree.meta.height == 2);
+
+    PRINT("RemoveWithHeightDecrease");
+    }
+
+    {
+    bplus_tree tree("test.db", true);
+    for (int i = 0; i < 30; i++) {
+        char key[8] = { 0 };
+        sprintf(key, "%d", i);
+        assert(tree.insert(key, i) == 0);
+    }
+    }
+
+
+    {
+    // | 17 25 3  |
+    // | 11 14  | 2 22  | 28  | 6  |
+    // | 0 1 10 | 11 12 13 | 14 15 16 | 17 18 19 | 2 20 21 | 22 23 24 | 25 26 27 | 28 29 | 3 4 5 | 6 7 8 9 |
+    bplus_tree tree("test.db");
+    assert(tree.meta.order == 4);
+    assert(tree.meta.internal_node_num == 5);
+    assert(tree.meta.leaf_node_num == 10);
+    assert(tree.meta.height == 2);
+    assert(tree.remove("0") == 0);
+    assert(tree.remove("11") == 0);
+    assert(tree.remove("10") == 0);
+    assert(tree.remove("13") == 0);
+    assert(tree.remove("12") == 0);
+    assert(tree.remove("14") == 0);
+    // | 2 25 3  |
+    // | 17 | 22  | 28  | 6  |
+    // | 1 15 16 | 17 18 19 | 2 20 21 | 22 23 24 | 25 26 27 | 28 29 | 3 4 5 | 6 7 8 9 |
+    assert(tree.meta.internal_node_num == 5);
+    assert(tree.meta.leaf_node_num == 8);
+    assert(tree.meta.height == 2);
+
+    PRINT("RemoveWithBorrowInParentRight");
     }
 
     unlink("test.db");

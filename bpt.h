@@ -106,8 +106,11 @@ public:
     void remove_from_index(off_t offset, internal_node_t &node,
                            const key_t &key);
 
+    /* borrow one key from other internal node */
+    bool borrow_key(bool from_right, internal_node_t &borrower);
+
     /* borrow one record from other leaf */
-    bool borrow_record(bool from_right, leaf_node_t *borrower);
+    bool borrow_key(bool from_right, leaf_node_t &borrower);
 
     /* change one's parent key to another key */
     void change_parent_child(off_t parent, const key_t &o, const key_t &n);
@@ -166,14 +169,14 @@ public:
     off_t alloc(leaf_node_t *leaf)
     {
         leaf->n = 0;
-        meta.leaf_node_num += 1;
+        meta.leaf_node_num++;
         return alloc(sizeof(leaf_node_t));
     }
 
     off_t alloc(internal_node_t *node)
     {
         node->n = 1;
-        meta.internal_node_num += 1;
+        meta.internal_node_num++;
         return alloc(sizeof(internal_node_t));
     }
 
