@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     bpt::internal_node_t index;
     off_t index_off = tree.search_index("t1");
     tree.map(&index, index_off);
-    assert(index.n == 1);
+    assert(index.n == 2);
     assert(index.parent == 0);
     assert(bpt::keycmp(index.children[0].key, "t4") == 0);
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     bpt::internal_node_t index;
     off_t index_off = tree.search_index("t8");
     tree.map(&index, index_off);
-    assert(index.n == 2);
+    assert(index.n == 3);
     assert(index.parent == 0);
     assert(bpt::keycmp(index.children[0].key, "t4") == 0);
     assert(bpt::keycmp(index.children[1].key, "t7") == 0);
@@ -196,14 +196,14 @@ int main(int argc, char *argv[])
     off_t node2_off = tree.search_index("t14");
     tree.map(&node1, node1_off);
     tree.map(&node2, node2_off);
-    assert(root.n == 1);
+    assert(root.n == 2);
     assert(root.children[0].child == node1_off);
     assert(root.children[1].child == node2_off);
     assert(bpt::keycmp(root.children[0].key, "t09") == 0);
-    assert(node1.n == 2);
+    assert(node1.n == 3);
     assert(bpt::keycmp(node1.children[0].key, "t03") == 0);
     assert(bpt::keycmp(node1.children[1].key, "t06") == 0);
-    assert(node2.n == 1);
+    assert(node2.n == 2);
     assert(bpt::keycmp(node2.children[0].key, "t12") == 0);
 
     bpt::value_t value;
@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
 
     bpt::internal_node_t node;
     tree.map(&node, tree.meta.root_offset);
-    assert(node.n == 3);
+    assert(node.n == 4);
     assert(bpt::keycmp(node.children[0].key, "11") == 0);
     assert(bpt::keycmp(node.children[1].key, "3") == 0);
     assert(bpt::keycmp(node.children[2].key, "6") == 0);
@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 
     bpt::internal_node_t node;
     tree.map(&node, tree.meta.root_offset);
-    assert(node.n == 3);
+    assert(node.n == 4);
     assert(bpt::keycmp(node.children[0].key, "3") == 0);
     assert(bpt::keycmp(node.children[1].key, "51") == 0);
     assert(bpt::keycmp(node.children[2].key, "6") == 0);
@@ -347,14 +347,14 @@ int main(int argc, char *argv[])
     off_t node2_off = tree.search_index("6");
     tree.map(&node1, node1_off);
     tree.map(&node2, node2_off);
-    assert(root.n == 1);
+    assert(root.n == 2);
     assert(bpt::keycmp(root.children[0].key, "3") == 0);
     assert(root.children[0].child == node1_off);
     assert(root.children[1].child == node2_off);
-    assert(node1.n == 2);
+    assert(node1.n == 3);
     assert(bpt::keycmp(node1.children[0].key, "11") == 0);
     assert(bpt::keycmp(node1.children[1].key, "14") == 0);
-    assert(node2.n == 1);
+    assert(node2.n == 2);
     assert(bpt::keycmp(node2.children[0].key, "6") == 0);
     for (int i = 0; i < 15; i++) {
         char key[8] = { 0 };
@@ -391,7 +391,17 @@ int main(int argc, char *argv[])
     tree.map(&node2, node2_off);
     tree.map(&node3, node3_off);
     tree.map(&node4, node4_off);
-    assert(root.n == 3);
+    assert(root.prev == 0);
+    assert(root.next == 0);
+    assert(node1.prev == 0);
+    assert(node1.next == node2_off);
+    assert(node2.prev == node1_off);
+    assert(node2.next == node3_off);
+    assert(node3.prev == node2_off);
+    assert(node3.next == node4_off);
+    assert(node4.prev == node3_off);
+    assert(node4.next == 0);
+    assert(root.n == 4);
     assert(bpt::keycmp(root.children[0].key, "17") == 0);
     assert(bpt::keycmp(root.children[1].key, "25") == 0);
     assert(bpt::keycmp(root.children[2].key, "3") == 0);
@@ -399,15 +409,15 @@ int main(int argc, char *argv[])
     assert(root.children[1].child == node2_off);
     assert(root.children[2].child == node3_off);
     assert(root.children[3].child == node4_off);
-    assert(node1.n == 2);
+    assert(node1.n == 3);
     assert(bpt::keycmp(node1.children[0].key, "11") == 0);
     assert(bpt::keycmp(node1.children[1].key, "14") == 0);
-    assert(node2.n == 2);
+    assert(node2.n == 3);
     assert(bpt::keycmp(node2.children[0].key, "2") == 0);
     assert(bpt::keycmp(node2.children[1].key, "22") == 0);
-    assert(node3.n == 1);
+    assert(node3.n == 2);
     assert(bpt::keycmp(node3.children[0].key, "28") == 0);
-    assert(node4.n == 1);
+    assert(node4.n == 2);
     assert(bpt::keycmp(node4.children[0].key, "6") == 0);
 
     for (int i = 0; i < 30; i++) {
@@ -437,30 +447,30 @@ int main(int argc, char *argv[])
 
     bpt::internal_node_t root;
     tree.map(&root, tree.meta.root_offset);
-    assert(root.n == 1);
+    assert(root.n == 2);
     assert(bpt::keycmp(root.children[0].key, "3") == 0);
 
     bpt::internal_node_t node1, node2;
     tree.map(&node1, root.children[0].child);
     tree.map(&node2, root.children[1].child);
-    assert(node1.n == 2);
+    assert(node1.n == 3);
     assert(bpt::keycmp(node1.children[0].key, "17") == 0);
     assert(bpt::keycmp(node1.children[1].key, "25") == 0);
-    assert(node2.n == 2);
+    assert(node2.n == 3);
     assert(bpt::keycmp(node2.children[0].key, "4") == 0);
     assert(bpt::keycmp(node2.children[1].key, "45") == 0);
 
     bpt::internal_node_t node3, node4, node5;
     tree.map(&node3, node2.children[0].child);
-    assert(node3.n == 3);
+    assert(node3.n == 4);
     assert(bpt::keycmp(node3.children[0].key, "32") == 0);
     assert(bpt::keycmp(node3.children[1].key, "35") == 0);
     assert(bpt::keycmp(node3.children[2].key, "38") == 0);
     tree.map(&node4, node2.children[1].child);
-    assert(node4.n == 1);
+    assert(node4.n == 2);
     assert(bpt::keycmp(node4.children[0].key, "42") == 0);
     tree.map(&node5, node2.children[2].child);
-    assert(node5.n == 2);
+    assert(node5.n == 3);
     assert(bpt::keycmp(node5.children[0].key, "48") == 0);
     assert(bpt::keycmp(node5.children[1].key, "6") == 0);
 
@@ -740,6 +750,7 @@ int main(int argc, char *argv[])
     // | 2 7  |
     // | 0 1 | 2 6 | 7 8 9 |
     tree.map(&node, tree.meta.root_offset);
+    assert(node.n == 3);
     assert(bpt::keycmp(node.children[0].key, "02") == 0);
     assert(bpt::keycmp(node.children[1].key, "07") == 0);
     tree.map(&leaf, tree.search_leaf("04"));
@@ -754,7 +765,86 @@ int main(int argc, char *argv[])
     assert(bpt::keycmp(leaf.children[1].key, "08") == 0);
     assert(bpt::keycmp(leaf.children[2].key, "09") == 0);
 
+    bpt::value_t value;
+    assert(tree.search("00", &value) == 0);
+    assert(value == 0);
+    assert(tree.search("01", &value) == 0);
+    assert(value == 1);
+    assert(tree.search("02", &value) == 0);
+    assert(value == 2);
+    assert(tree.search("03", &value) != 0);
+    assert(tree.search("04", &value) != 0);
+    assert(tree.search("05", &value) != 0);
+    assert(tree.search("06", &value) == 0);
+    assert(value == 6);
+    assert(tree.search("07", &value) == 0);
+    assert(value == 7);
+    assert(tree.search("08", &value) == 0);
+    assert(value == 8);
+    assert(tree.search("09", &value) == 0);
+    assert(value == 9);
+
     PRINT("RemoveWithBorrow");
+    }
+
+    {
+    bplus_tree tree("test.db");
+    bpt::internal_node_t node;
+    assert(tree.meta.leaf_node_num == 3);
+    assert(tree.meta.internal_node_num == 1);
+
+    // | 2 7  |
+    // | 0 1 | 2 6 | 7 8 9 |
+    assert(tree.remove("00") == 0);
+    // | 7  |
+    // | 1 2 6 | 7 8 9 |
+    assert(tree.meta.leaf_node_num == 2);
+    assert(tree.meta.internal_node_num == 1);
+    tree.map(&node, tree.meta.root_offset);
+    assert(node.n == 2);
+    assert(bpt::keycmp(node.children[0].key, "07") == 0);
+    off_t leaf1_off, leaf2_off;
+    leaf1_off = tree.search_leaf("01");
+    leaf2_off = tree.search_leaf("07");
+    assert(leaf1_off == node.children[0].child);
+    assert(leaf2_off == node.children[1].child);
+    bpt::leaf_node_t leaf1, leaf2;
+    tree.map(&leaf1, leaf1_off);
+    tree.map(&leaf2, leaf2_off);
+    assert(leaf1.n == 3);
+    assert(leaf1.next == leaf2_off);
+    assert(bpt::keycmp(leaf1.children[0].key, "01") == 0);
+    assert(bpt::keycmp(leaf1.children[1].key, "02") == 0);
+    assert(bpt::keycmp(leaf1.children[2].key, "06") == 0);
+    assert(leaf2.n == 3);
+    assert(leaf2.next == 0);
+    assert(tree.remove("09") == 0);
+    tree.map(&leaf2, leaf2_off);
+    assert(leaf2.n == 2);
+    assert(leaf2.next == 0);
+    assert(bpt::keycmp(leaf2.children[0].key, "07") == 0);
+    assert(bpt::keycmp(leaf2.children[1].key, "08") == 0);
+    assert(tree.remove("01") == 0);
+    assert(tree.remove("08") == 0);
+    // |  |
+    // | 2 6 7 |
+    assert(tree.meta.leaf_node_num == 1);
+    assert(tree.meta.internal_node_num == 1);
+    tree.map(&node, tree.meta.root_offset);
+    assert(node.n == 1);
+    off_t offset;
+    offset = tree.search_leaf("02");
+    assert(offset == node.children[0].child);
+    bpt::leaf_node_t leaf;
+    tree.map(&leaf, offset);
+    assert(leaf.n == 3);
+    assert(leaf.next == 0);
+    assert(leaf.prev == 0);
+    assert(bpt::keycmp(leaf.children[0].key, "02") == 0);
+    assert(bpt::keycmp(leaf.children[1].key, "06") == 0);
+    assert(bpt::keycmp(leaf.children[2].key, "07") == 0);
+
+    PRINT("RemoveWithMerge");
     }
 
     unlink("test.db");

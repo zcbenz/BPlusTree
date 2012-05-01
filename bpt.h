@@ -42,6 +42,8 @@ struct index_t {
  * internal node block
  ***/
 struct internal_node_t {
+    typedef index_t * child_t;
+
     off_t parent; /* parent node offset */
     off_t next;
     off_t prev;
@@ -57,6 +59,8 @@ struct record_t {
 
 /* leaf node block */
 struct leaf_node_t {
+    typedef record_t *child_t;
+
     off_t parent; /* parent node offset */
     off_t next;
     off_t prev;
@@ -98,26 +102,27 @@ public:
         return search_leaf(search_index(key), key);
     }
 
+    /* remove internal node */
+    void remove_from_index(off_t offset, internal_node_t &node,
+                           const key_t &key);
+
     /* borrow one record from other leaf */
     bool borrow_record(bool from_right, leaf_node_t *borrower);
 
     /* change one's parent key to another key */
     void change_parent_child(off_t parent, const key_t &o, const key_t &n);
 
-    /* remove one key from leaf */
-    void remove_record_no_merge(leaf_node_t *leaf, const key_t &key);
-    void remove_record_no_merge(leaf_node_t *leaf, record_t *to_delete);
+    /* merge right leaf to left leaf */
+    void merge_leafs(leaf_node_t *left, leaf_node_t *right);
 
     /* insert into leaf without split */
     void insert_record_no_split(leaf_node_t *leaf,
-                                const key_t &key, const value_t &value);
-    void insert_record_no_split(leaf_node_t *leaf, record_t *where,
                                 const key_t &key, const value_t &value);
 
     /* add key to the internal node */
     void insert_key_to_index(off_t offset, const key_t &key,
                              off_t value, off_t after);
-    void insert_key_to_index_no_split(internal_node_t *node, const key_t &key,
+    void insert_key_to_index_no_split(internal_node_t &node, const key_t &key,
                                       off_t value);
 
     /* change children's parent */
@@ -125,7 +130,10 @@ public:
                                      off_t parent);
 
     template<class T>
-    void cat_node(off_t offset, T *node, T *next);
+    void node_create(off_t offset, T *node, T *next);
+
+    template<class T>
+    void node_remove(T *prev, T *node);
 
     /* multi-level file open/close */
     mutable FILE *fp;
@@ -164,31 +172,36 @@ public:
 
     off_t alloc(internal_node_t *node)
     {
-        node->n = 0;
+        node->n = 1;
         meta.internal_node_num += 1;
         return alloc(sizeof(internal_node_t));
     }
 
-    void unalloc(leaf_node_t *leaf)
+    void unalloc(leaf_node_t *leaf, off_t offset)
     {
         --meta.leaf_node_num;
     }
 
-    void unalloc(internal_node_t *node)
+    void unalloc(internal_node_t *node, off_t offset)
     {
         --meta.internal_node_num;
     }
 
     /* read block from disk */
-    template<class T>
-    int map(T *block, off_t offset) const
+    int map(void *block, off_t offset, size_t size) const
     {
         open_file();
         fseek(fp, offset, SEEK_SET);
-        size_t rd = fread(block, sizeof(T), 1, fp);
+        size_t rd = fread(block, size, 1, fp);
         close_file();
 
         return rd - 1;
+    }
+
+    template<class T>
+    int map(T *block, off_t offset) const
+    {
+        return map(block, offset, sizeof(T));
     }
 
     /* write block to disk */
