@@ -372,8 +372,8 @@ bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower)
             where_to_put = end(borrower);
 
             map(&parent, borrower.parent);
-            child_t where = find(parent, begin(borrower)->key);
-            (where_to_put - 1)->key = where->key;
+            child_t where = lower_bound(begin(parent), end(parent),
+                                        (end(borrower) -1)->key);
             where->key = where_to_lend->key;
             unmap(&parent, borrower.parent);
         } else {
@@ -388,7 +388,7 @@ bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower)
         }
 
         // store
-        std::copy(where_to_put, end(borrower), end(borrower) + 1);
+        std::copy_backward(where_to_put, end(borrower), end(borrower) + 1);
         *where_to_put = *where_to_lend;
         borrower.n++;
 

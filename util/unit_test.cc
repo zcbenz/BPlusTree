@@ -980,6 +980,8 @@ int main(int argc, char *argv[])
     // | 11 14  | 2 22  | 28  | 6  |
     // | 0 1 10 | 11 12 13 | 14 15 16 | 17 18 19 | 2 20 21 | 22 23 24 | 25 26 27 | 28 29 | 3 4 5 | 6 7 8 9 |
     bplus_tree tree("test.db");
+    bpt::internal_node_t node1, node2, node3, node4, root;
+    off_t node1_off, node2_off, node3_off, node4_off;
     assert(tree.meta.order == 4);
     assert(tree.meta.internal_node_num == 5);
     assert(tree.meta.leaf_node_num == 10);
@@ -989,6 +991,9 @@ int main(int argc, char *argv[])
     assert(tree.remove("10") == 0);
     assert(tree.remove("13") == 0);
     assert(tree.remove("12") == 0);
+    // | 17 25 3  |
+    // | 15  | 2 22  | 28  | 6  |
+    // | 1 14 | 15 16 | 17 18 19 | 2 20 21 | 22 23 24 | 25 26 27 | 28 29 | 3 4 5 | 6 7 8 9 |
     assert(tree.remove("14") == 0);
     // | 2 25 3  |
     // | 17  | 22  | 28  | 6  |
@@ -997,12 +1002,11 @@ int main(int argc, char *argv[])
     assert(tree.meta.leaf_node_num == 8);
     assert(tree.meta.height == 2);
 
-    bpt::internal_node_t node1, node2, node3, node4, root;
+    node1_off = tree.search_index("11");
+    node2_off = tree.search_index("22");
+    node3_off = tree.search_index("28");
+    node4_off = tree.search_index("6");
     tree.map(&root, tree.meta.root_offset);
-    off_t node1_off = tree.search_index("11");
-    off_t node2_off = tree.search_index("22");
-    off_t node3_off = tree.search_index("28");
-    off_t node4_off = tree.search_index("6");
     tree.map(&node1, node1_off);
     tree.map(&node2, node2_off);
     tree.map(&node3, node3_off);
