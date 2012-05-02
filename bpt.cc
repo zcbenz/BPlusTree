@@ -277,6 +277,7 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
     assert(node.n >= min_n && node.n <= meta.order);
 
     // remove key
+    key_t index_key = begin(node)->key;
     index_t *to_delete = find(node, key);
     if (to_delete != end(node)) {
         (to_delete + 1)->child = to_delete->child;
@@ -308,10 +309,47 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
 
         // finally we merge
         if (!borrowed) {
-        }
-    }
+            assert(node.next != 0 || node.prev != 0);
 
-    unmap(&node, offset);
+            internal_node_t parent;
+            map(&parent, node.parent);
+
+            if (offset == end(parent)->child) {
+                // if leaf is last element then merge | prev | leaf |
+                assert(node.prev != 0);
+                internal_node_t prev;
+                map(&prev, node.prev);
+
+                // merge
+                index_t *where = find(parent, begin(prev)->key);
+                (end(prev) - 1)->key = where->key;
+                std::copy(begin(node), end(node), end(prev));
+                prev.n += node.n;
+                node_remove(&prev, &node);
+                unmap(&prev, node.prev);
+            } else {
+                // else merge | leaf | next |
+                assert(node.next != 0);
+                internal_node_t next;
+                map(&next, node.next);
+
+                // merge
+                index_t *where = find(parent, index_key);
+                (end(node) - 1)->key = where->key;
+                std::copy(begin(next), end(next), end(node));
+                node.n += next.n;
+                node_remove(&node, &next);
+                unmap(&node, offset);
+            }
+
+            // remove parent's key
+            remove_from_index(node.parent, parent, index_key);
+        } else {
+            unmap(&node, offset);
+        }
+    } else {
+        unmap(&node, offset);
+    }
 }
 
 bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower)
