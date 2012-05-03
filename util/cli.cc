@@ -30,6 +30,8 @@ int main(int argc, char *argv[])
             while (next) {
                 int ret = database.search_range(
                         &start, argv[4], values, 512, &next);
+                if (ret < 0)
+                    break;
                 for (int i = 0; i < ret; i++)
                     printf("%d\n", values[i]);
             }

@@ -11,6 +11,8 @@ using bpt::bplus_tree;
 
 int main(int argc, char *argv[])
 {
+    const int size = 128;
+
     {
     bplus_tree tree("test.db", true);
     assert(tree.meta.order == 4);
@@ -491,7 +493,6 @@ int main(int argc, char *argv[])
     PRINT("DanglingMiddleKey");
     }
 
-    const int size = 128;
     int numbers[size];
     for (int i = 0; i < size; i++)
         numbers[i] = i;
@@ -962,6 +963,14 @@ int main(int argc, char *argv[])
     assert(root.n == 3);
     assert(bpt::keycmp(root.children[0].key, "14") == 0);
     assert(bpt::keycmp(root.children[1].key, "3") == 0);
+    assert(tree.insert("1", 0) != 0);
+    assert(tree.insert("2", 0) != 0);
+    assert(tree.insert("3", 0) != 0);
+    assert(tree.insert("4", 0) != 0);
+    assert(tree.insert("5", 0) != 0);
+    assert(tree.insert("12", 0) != 0);
+    assert(tree.insert("13", 0) != 0);
+    assert(tree.insert("14", 0) != 0);
 
     PRINT("RemoveWithHeightDecrease");
     }
@@ -1041,37 +1050,40 @@ int main(int argc, char *argv[])
     PRINT("RemoveWithBorrowInParentRight");
     }
 
-    for (int i = 0; i < size; i++)
+    const int size2 = 119;
+    for (int i = 0; i < size2; i++)
         numbers[i] = i;
 
     {
     bplus_tree tree("test.db", true);
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         assert(tree.insert(key, numbers[i]) == 0);
     }
-    for (int i = 0; i < size / 2; i++) {
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         assert(tree.remove(key) == 0);
+        for (int j = i + 1; j < size2; j++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[j]);
+            bpt::value_t value;
+            assert(tree.search(key, &value) == 0);
+        }
     }
     }
 
     {
     bplus_tree tree("test.db");
-    for (int i = 0; i < size / 2; i++) {
+    assert(tree.meta.internal_node_num == 1);
+    assert(tree.meta.leaf_node_num == 1);
+    assert(tree.meta.height == 1);
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         bpt::value_t value;
         assert(tree.search(key, &value) != 0);
-    }
-    for (int i = size / 2; i < size; i++) {
-        char key[8] = { 0 };
-        sprintf(key, "%d", numbers[i]);
-        bpt::value_t value;
-        assert(tree.search(key, &value) == 0);
-        assert(value == numbers[i]);
     }
     PRINT("RemoveManyKeys");
     }
@@ -1079,33 +1091,33 @@ int main(int argc, char *argv[])
     std::reverse(numbers, numbers + size);
     {
     bplus_tree tree("test.db", true);
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         assert(tree.insert(key, numbers[i]) == 0);
     }
-    for (int i = 0; i < size / 2; i++) {
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         assert(tree.remove(key) == 0);
+        for (int j = i + 1; j < size2; j++) {
+            char key[8] = { 0 };
+            sprintf(key, "%d", numbers[j]);
+            bpt::value_t value;
+            assert(tree.search(key, &value) == 0);
+        }
     }
     }
 
     {
     bplus_tree tree("test.db");
-    for (int i = 0; i < size / 2; i++) {
+    for (int i = 0; i < size2; i++) {
         char key[8] = { 0 };
         sprintf(key, "%d", numbers[i]);
         bpt::value_t value;
         assert(tree.search(key, &value) != 0);
     }
-    for (int i = size / 2; i < size; i++) {
-        char key[8] = { 0 };
-        sprintf(key, "%d", numbers[i]);
-        bpt::value_t value;
-        assert(tree.search(key, &value) == 0);
-        assert(value == numbers[i]);
-    }
+
     PRINT("RemoveManyKeysReverse");
     }
 

@@ -80,6 +80,9 @@ public:
     int remove(const key_t& key);
     int insert(const key_t& key, value_t value);
     int update(const key_t& key, value_t value);
+    meta_t get_meta() const {
+        return meta;
+    };
 
 #ifndef UNIT_TEST
 private:
@@ -107,7 +110,8 @@ public:
                            const key_t &key);
 
     /* borrow one key from other internal node */
-    bool borrow_key(bool from_right, internal_node_t &borrower);
+    bool borrow_key(bool from_right, internal_node_t &borrower,
+                    off_t offset);
 
     /* borrow one record from other leaf */
     bool borrow_key(bool from_right, leaf_node_t &borrower);
@@ -117,6 +121,9 @@ public:
 
     /* merge right leaf to left leaf */
     void merge_leafs(leaf_node_t *left, leaf_node_t *right);
+
+    void merge_keys(index_t *where, internal_node_t &left,
+                    internal_node_t &right);
 
     /* insert into leaf without split */
     void insert_record_no_split(leaf_node_t *leaf,
