@@ -27,7 +27,14 @@ inline typename T::child_t end(T &node) {
 
 /* helper searching function */
 inline index_t *find(internal_node_t &node, const key_t &key) {
-    return upper_bound(begin(node), end(node) - 1, key);
+    if (key) {
+        return upper_bound(begin(node), end(node) - 1, key);
+    }
+    // because the end of the index range is an empty string, so if we search the empty key(when merge internal nodes), we need to return the second last one
+    if (node.n > 1) {
+        return node.children + node.n - 2;
+    }
+    return begin(node);
 }
 inline record_t *find(leaf_node_t &node, const key_t &key) {
     return lower_bound(begin(node), end(node), key);
@@ -462,7 +469,7 @@ void bplus_tree::merge_leafs(leaf_node_t *left, leaf_node_t *right)
 }
 
 void bplus_tree::merge_keys(index_t *where,
-                            internal_node_t &node, internal_node_t &next, bool change_where_key = false)
+                            internal_node_t &node, internal_node_t &next, bool change_where_key)
 {
     //(end(node) - 1)->key = where->key;
     if (change_where_key) {
