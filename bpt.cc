@@ -380,7 +380,7 @@ bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower,
 
             map(&parent, lender.parent);
             child_t where = find(parent, begin(lender)->key);
-            where_to_put->key = where->key;
+            // where_to_put->key = where->key;  // We shouldn't change where_to_put->key, because it just records the largest info but we only changes a new one which have been the smallest one
             where->key = (where_to_lend - 1)->key;
             unmap(&parent, lender.parent);
         }
