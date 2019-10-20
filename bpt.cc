@@ -324,7 +324,7 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
                 // merge
                 index_t *where = find(parent, begin(prev)->key);
                 reset_index_children_parent(begin(node), end(node), node.prev);
-                merge_keys(where, prev, node);
+                merge_keys(where, prev, node, true);
                 unmap(&prev, node.prev);
             } else {
                 // else merge | leaf | next |
@@ -462,10 +462,12 @@ void bplus_tree::merge_leafs(leaf_node_t *left, leaf_node_t *right)
 }
 
 void bplus_tree::merge_keys(index_t *where,
-                            internal_node_t &node, internal_node_t &next)
+                            internal_node_t &node, internal_node_t &next, bool change_where_key = false)
 {
     //(end(node) - 1)->key = where->key;
-    //where->key = (end(next) - 1)->key;
+    if (change_where_key) {
+        where->key = (end(next) - 1)->key;
+    }
     std::copy(begin(next), end(next), end(node));
     node.n += next.n;
     node_remove(&node, &next);
