@@ -1088,7 +1088,7 @@ int main(int argc, char *argv[])
     PRINT("RemoveManyKeys");
     }
 
-    std::reverse(numbers, numbers + size);
+    std::reverse(numbers, numbers + size2);
     {
     bplus_tree tree("test.db", true);
     for (int i = 0; i < size2; i++) {

@@ -27,7 +27,14 @@ inline typename T::child_t end(T &node) {
 
 /* helper searching function */
 inline index_t *find(internal_node_t &node, const key_t &key) {
-    return upper_bound(begin(node), end(node) - 1, key);
+    if (key) {
+        return upper_bound(begin(node), end(node) - 1, key);
+    }
+    // because the end of the index range is an empty string, so if we search the empty key(when merge internal nodes), we need to return the second last one
+    if (node.n > 1) {
+        return node.children + node.n - 2;
+    }
+    return begin(node);
 }
 inline record_t *find(leaf_node_t &node, const key_t &key) {
     return lower_bound(begin(node), end(node), key);
@@ -324,7 +331,7 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
                 // merge
                 index_t *where = find(parent, begin(prev)->key);
                 reset_index_children_parent(begin(node), end(node), node.prev);
-                merge_keys(where, prev, node);
+                merge_keys(where, prev, node, true);
                 unmap(&prev, node.prev);
             } else {
                 // else merge | leaf | next |
@@ -380,7 +387,7 @@ bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower,
 
             map(&parent, lender.parent);
             child_t where = find(parent, begin(lender)->key);
-            where_to_put->key = where->key;
+            // where_to_put->key = where->key;  // We shouldn't change where_to_put->key, because it just records the largest info but we only changes a new one which have been the smallest one
             where->key = (where_to_lend - 1)->key;
             unmap(&parent, lender.parent);
         }
@@ -462,10 +469,12 @@ void bplus_tree::merge_leafs(leaf_node_t *left, leaf_node_t *right)
 }
 
 void bplus_tree::merge_keys(index_t *where,
-                            internal_node_t &node, internal_node_t &next)
+                            internal_node_t &node, internal_node_t &next, bool change_where_key)
 {
     //(end(node) - 1)->key = where->key;
-    //where->key = (end(next) - 1)->key;
+    if (change_where_key) {
+        where->key = (end(next) - 1)->key;
+    }
     std::copy(begin(next), end(next), end(node));
     node.n += next.n;
     node_remove(&node, &next);

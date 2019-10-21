@@ -18,6 +18,10 @@ struct key_t {
         bzero(k, sizeof(k));
         strcpy(k, str);
     }
+
+    operator bool() const {
+        return strcmp(k, "");
+    }
 };
 
 inline int keycmp(const key_t &a, const key_t &b) {

@@ -123,7 +123,7 @@ public:
     void merge_leafs(leaf_node_t *left, leaf_node_t *right);
 
     void merge_keys(index_t *where, internal_node_t &left,
-                    internal_node_t &right);
+                    internal_node_t &right, bool change_where_key = false);
 
     /* insert into leaf without split */
     void insert_record_no_split(leaf_node_t *leaf,
