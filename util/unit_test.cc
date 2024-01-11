@@ -9,7 +9,14 @@
 #include "../bpt.h"
 using bpt::bplus_tree;
 
-int main(int argc, char *argv[])
+
+int test_complex();
+
+int main(int argc, char *argv[]){
+    test_complex();
+}
+
+int test_complex()
 {
     const int size = 128;
 
@@ -1120,6 +1127,41 @@ int main(int argc, char *argv[])
 
     PRINT("RemoveManyKeysReverse");
     }
+
+    {
+        bplus_tree tree("test.db", true);
+        assert(tree.meta.order == 4);
+        int sizeKeys = 10000;
+        char keys[sizeKeys][8];
+
+        // Create keys
+        for (int i = 0; i < sizeKeys; i++) {
+            sprintf(keys[i], "key%d", i);
+        }
+
+        // Insert keys
+        for (int i = 0; i < sizeKeys; i++) {
+            bpt::key_t k(keys[i]);
+            bpt::value_t v(i);
+            assert(tree.insert(k, v) == 0);
+        }
+
+        // Delete keys in reverse order
+        for (int i = sizeKeys - 1; i >= 0; i--) {
+            bpt::key_t k(keys[i]);
+            assert(tree.remove(k) == 0);
+        }
+
+        // Check if keys are removed
+        for (int i = 0; i < sizeKeys; i++) {
+            bpt::key_t k(keys[i]);
+            bpt::value_t v;
+            assert(tree.search(k, &v) != 0);
+        }
+
+        PRINT("RemoveLargeKeysReverse");
+    }
+
 
     unlink("test.db");
 

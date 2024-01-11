@@ -26,9 +26,11 @@ inline typename T::child_t end(T &node) {
 }
 
 /* helper searching function */
-inline index_t *find(internal_node_t &node, const key_t &key) {
+inline index_t *find(internal_node_t &node, const key_t &key, bool flag = false) {
     if (key) {
-        return upper_bound(begin(node), end(node) - 1, key);
+         index_t* where = upper_bound(begin(node), end(node) - 1, key);
+         if (flag ) where --;
+         return where;
     }
     // because the end of the index range is an empty string, so if we search the empty key(when merge internal nodes), we need to return the second last one
     if (node.n > 1) {
@@ -279,14 +281,14 @@ int bplus_tree::update(const key_t& key, value_t value)
 }
 
 void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
-                                   const key_t &key)
+                                   const key_t &key, bool remove_flag)
 {
     size_t min_n = meta.root_offset == offset ? 1 : meta.order / 2;
     assert(node.n >= min_n && node.n <= meta.order);
 
     // remove key
     key_t index_key = begin(node)->key;
-    index_t *to_delete = find(node, key);
+    index_t *to_delete = find(node, key, remove_flag);
     if (to_delete != end(node)) {
         (to_delete + 1)->child = to_delete->child;
         std::copy(to_delete + 1, end(node), to_delete);
@@ -321,6 +323,7 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
         // finally we merge
         if (!borrowed) {
             assert(node.next != 0 || node.prev != 0);
+            bool remove_flag = false;
 
             if (offset == (end(parent) - 1)->child) {
                 // if leaf is last element then merge | prev | leaf |
@@ -340,6 +343,8 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
                 map(&next, node.next);
 
                 // merge
+                index_key = begin(next)->key;
+                remove_flag = true;
                 index_t *where = find(parent, index_key);
                 reset_index_children_parent(begin(next), end(next), offset);
                 merge_keys(where, node, next);
@@ -347,7 +352,7 @@ void bplus_tree::remove_from_index(off_t offset, internal_node_t &node,
             }
 
             // remove parent's key
-            remove_from_index(node.parent, parent, index_key);
+            remove_from_index(node.parent, parent, index_key,remove_flag);
         } else {
             unmap(&node, offset);
         }
@@ -377,8 +382,7 @@ bool bplus_tree::borrow_key(bool from_right, internal_node_t &borrower,
             where_to_put = end(borrower);
 
             map(&parent, borrower.parent);
-            child_t where = lower_bound(begin(parent), end(parent) - 1,
-                                        (end(borrower) -1)->key);
+            child_t where = find(parent, begin(lender)->key,true);
             where->key = where_to_lend->key;
             unmap(&parent, borrower.parent);
         } else {
