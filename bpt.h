@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <iostream>
 
 #ifndef UNIT_TEST
 #include "predefined.h"
@@ -85,7 +86,7 @@ public:
     };
 
 #ifndef UNIT_TEST
-private:
+    public:
 #else
 public:
 #endif
@@ -107,7 +108,7 @@ public:
 
     /* remove internal node */
     void remove_from_index(off_t offset, internal_node_t &node,
-                           const key_t &key);
+                           const key_t &key, bool remove_flag = false);
 
     /* borrow one key from other internal node */
     bool borrow_key(bool from_right, internal_node_t &borrower,
@@ -232,6 +233,59 @@ public:
     }
 };
 
-}
+    class TreeStructureDisplay {
+    public:
+        TreeStructureDisplay(const bplus_tree &tree) : tree(tree) {}
 
+        void Display() {
+            displayNode(tree.get_meta().root_offset, 0);
+        }
+
+    private:
+        const bplus_tree &tree;
+
+        void displayNode(off_t offset, int level) {
+            if (offset == 0) {
+                return;
+            }
+
+            if (level < tree.get_meta().height) {
+                // 内部节点
+                internal_node_t node;
+                tree.map(&node, offset);
+
+                std::cout << indent(level) << "Internal Node at offset " << offset << ": contains " << node.n
+                          << " keys\n";
+                for (size_t i = 0; i < node.n; ++i) {
+                    std::cout << indent(level + 1) << "Key: " << node.children[i].key.k << ", Child: "
+                              << node.children[i].child << "\n";
+                }
+
+                // 递归遍历子节点
+                for (size_t i = 0; i < node.n; ++i) {
+                    displayNode(node.children[i].child, level + 1);
+                }
+            } else {
+                // 叶节点
+                leaf_node_t leaf;
+                tree.map(&leaf, offset);
+
+                std::cout << indent(level) << "Leaf Node at offset " << offset << ": contains " << leaf.n
+                          << " records\n";
+                for (size_t i = 0; i < leaf.n; ++i) {
+                    std::cout << indent(level + 1) << "Record: Key: " << leaf.children[i].key.k << ", Value: "
+                              << leaf.children[i].value << "\n";
+                }
+            }
+        }
+        //indent
+        std::string indent(int level) {
+            std::string res;
+            for (int i = 0; i < level; ++i) {
+                res += "  ";
+            }
+            return res;
+        }
+    };
+}
 #endif /* end of BPT_H */
